@@ -1,0 +1,5 @@
+CFGVER=1
+
+KERNEL=xmodem://COM1
+CMDLINE=serial=COM1 -kterm
+
