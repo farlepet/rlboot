@@ -4,8 +4,8 @@ S1_BUILDDIR = $(BUILDDIR)/stage1
 
 STAGE1  = $(S1_BUILDDIR)/stage1.bin
 
-S1_ASFLAGS = -I stage1
-S1_LDFLAGS = -T stage1/stage1.ld
+S1_ASFLAGS = -I stage1 --32
+S1_LDFLAGS = -melf_i386 -T stage1/stage1.ld
 
 $(STAGE1): $(STAGE1).o
 	@echo -e "\033[32m    \033[1mLD\033[21m    \033[34m$<\033[0m"
@@ -15,7 +15,7 @@ $(STAGE1): $(STAGE1).o
 $(STAGE1).o: stage1/stage1.s
 	@echo -e "\033[32m    \033[1mAS\033[21m    \033[34m$<\033[0m"
 	$(Q) mkdir -p $(dir $@)
-	$(Q) $(CC) $(S1_ASFLAGS) -c -o $@ $<
+	$(Q) $(AS) $(S1_ASFLAGS) -c -o $@ $<
 
 stage1_clean:
 	$(Q) rm -f $(STAGE1) $(STAGE1).o $(STAGE1).elf

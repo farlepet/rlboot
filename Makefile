@@ -14,7 +14,26 @@ MKDOSFS_FLAGS = -n "RLBOOT" -F 12
 
 STAGE2_MAP=build/stage2.map
 
-OBJCOPY       := objcopy
+#ifneq ($(CROSS_COMPILE),)
+#	CC      := $(CROSS_COMPILE)gcc
+#	AS      := $(CROSS_COMPILE)as
+#	LD      := $(CROSS_COMPILE)ld
+#	AR      := $(CROSS_COMPILE)ar
+#	STRIP   := $(CROSS_COMPILE)strip
+#	OBJCOPY := $(CROSS_COMPILE)objcopy
+#else
+#	OBJCOPY := objcopy
+#	STRIP   := strip
+#endif
+
+# Currently this is only working with LLVM, due to Rust using LLVM
+CC := clang
+# Using clang for the first stage causes issues, as it produces 3-byte jmp
+# instruction where we want a 2-byte instruction
+AS := as
+STRIP := strip
+OBJCOPY := objcopy
+
 SECTOR_MAPPER := tools/sector_mapper/sector_mapper
 
 include stage1.mk
@@ -45,7 +64,7 @@ emu: $(FLOPPY)
 emu-sock: $(FLOPPY)
 	$(Q) qemu-system-i386 -fda $(FLOPPY) -machine pc -no-reboot                         \
 	                      -chardev socket,id=serial0,path=./com1.sock,server=on,debug=9 \
-                          -serial chardev:serial0
+	                      -serial chardev:serial0
 
 # Emulate more realistic floppy disk speeds
 emu-slow: $(FLOPPY)
@@ -59,7 +78,7 @@ emu-dbg: $(FLOPPY)
 emu-sock-dbg: $(FLOPPY)
 	$(Q) qemu-system-i386 -fda $(FLOPPY) -machine pc -no-reboot -S -s           \
 	                      -chardev socket,id=serial0,path=./com1.sock,server=on \
-                          -serial chardev:serial0
+	                      -serial chardev:serial0
 
 
 clean: stage1_clean stage2_clean

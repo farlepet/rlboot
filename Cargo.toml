@@ -4,8 +4,7 @@ description = "x86 bootloader targeted for floppy discs"
 version = "0.1.0"
 edition = "2021"
 authors = [ "Peter Farley <far.peter1@gmail.com>" ]
-
-[dependencies]
+include = [ "src/**/*", "Cargo.toml" ]
 
 [profile.dev]
 panic = "abort" # Disable stack unwinding
@@ -17,3 +16,8 @@ panic = "abort" # Disable stack unwinding
 path = "src/main.rs"
 crate-type = ["staticlib"]
 
+[features]
+io = []
+
+[dependencies]
+linked_list_allocator = "0.10.5"
