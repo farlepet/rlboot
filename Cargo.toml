@@ -11,6 +11,9 @@ panic = "abort" # Disable stack unwinding
 
 [profile.release]
 panic = "abort" # Disable stack unwinding
+opt-level = "z"
+lto = true
+#codegen-units = 1
 
 [lib]
 path = "src/main.rs"
