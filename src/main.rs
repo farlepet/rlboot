@@ -10,9 +10,16 @@ use core::sync::atomic;
 use core::sync::atomic::Ordering;
 use core::panic::PanicInfo;
 use core::ptr::addr_of;
+use core::fmt::Write;
 
+#[macro_use]
 mod io;
+mod bios;
+mod storage;
+
 use crate::io::output;
+use crate::storage::block::bios::BiosBlockDevice;
+use crate::storage::block::BlockDevice;
 
 extern "C" { static mut __lboot_end: u8; }
 #[no_mangle]
@@ -28,7 +35,27 @@ pub extern "C" fn ruststart() -> ! {
 
     output::init();
     output::puts("This is a test\n");
-    output::puts("This is a new line\n");
+
+    let mut bcall = bios::BiosCall {
+        int_n: 0x13,
+        eax: 0,
+        edx: 0,
+        ..Default::default()
+    };
+    unsafe { bcall.call(); }
+
+    let blk = BiosBlockDevice::new(0x00).unwrap();
+    let rdata = blk.read(0, 512);
+    match rdata {
+        Ok(data) => {
+            output::hexdump(&data);
+        },
+        Err(_) => {
+            println!("Read failure");
+        }
+    }
+
+    println!("This is a new line");
 
     loop {}
 }
@@ -36,6 +63,7 @@ pub extern "C" fn ruststart() -> ! {
 #[inline(never)]
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
+    //_info.to_string()
     loop {
         atomic::compiler_fence(Ordering::SeqCst);
     }
