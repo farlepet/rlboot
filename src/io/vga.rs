@@ -80,7 +80,7 @@ impl VGA {
 
     fn scroll(&mut self) {
         unsafe {
-            ptr::copy(self.vidmem, self.vidmem.offset(self.res_x as isize), (self.res_x as usize) * (self.res_y as usize - 1));
+            ptr::copy(self.vidmem.offset(self.res_x as isize), self.vidmem, (self.res_x as usize) * (self.res_y as usize - 1));
             self.vidmem.offset(self.res_x as isize * (self.res_y as isize - 1)).write_bytes(0, self.res_x as usize * 2)
         }
     }
@@ -93,3 +93,13 @@ impl crate::io::output::IOOutput for VGA {
         }
     }
 }
+
+impl core::fmt::Write for VGA {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        for ch in s.bytes() {
+            self.put_char(ch);
+        }
+        Ok(())
+    }
+}
+
