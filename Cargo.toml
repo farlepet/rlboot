@@ -4,6 +4,7 @@ description = "x86 bootloader targeted for floppy discs"
 version = "0.1.0"
 edition = "2021"
 authors = [ "Peter Farley <far.peter1@gmail.com>" ]
+license = "MIT"
 include = [ "src/**/*", "Cargo.toml" ]
 
 [profile.dev]
