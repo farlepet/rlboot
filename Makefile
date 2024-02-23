@@ -34,7 +34,7 @@ AS := as
 STRIP := strip
 OBJCOPY := objcopy
 
-SECTOR_MAPPER := tools/sector_mapper/sector_mapper
+SECTOR_MAPPER := tools/sector_mapper/Cargo.toml
 
 include stage1.mk
 include stage2.mk
@@ -52,7 +52,7 @@ $(BUILDDIR):
 	$(Q) mkdir -p $@
 
 $(SECTOR_MAPPER):
-	$(Q) cd tools/sector_mapper; $(MAKE)
+	$(Q) cargo build --release --manifest-path=$(SECTOR_MAPPER)
 
 emu: $(FLOPPY)
 	$(Q) qemu-system-i386 -fda $(FLOPPY) -serial stdio -machine pc -no-reboot
@@ -84,4 +84,4 @@ emu-sock-dbg: $(FLOPPY)
 clean: stage1_clean stage2_clean
 	$(Q) rm -f $(STAGE1) $(FLOPPY)
 
-.PHONY: clean emu emu-dbg
+.PHONY: clean emu emu-dbg $(SECTOR_MAPPER)
