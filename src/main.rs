@@ -1,11 +1,16 @@
 #![no_std]
 #![no_main]
+#![feature(panic_info_message)]
 
+extern crate alloc;
+
+use alloc::rc::Rc;
 /* TODO: Write custom allocator */
 use linked_list_allocator::LockedHeap;
 #[global_allocator]
 static HEAP: LockedHeap = LockedHeap::empty();
 
+use core::cell::RefCell;
 use core::sync::atomic;
 use core::sync::atomic::Ordering;
 use core::panic::PanicInfo;
@@ -20,6 +25,8 @@ mod storage;
 use crate::io::output;
 use crate::storage::block::bios::BiosBlockDevice;
 use crate::storage::block::BlockDevice;
+use crate::storage::fs::fat::FATFilesystem;
+use crate::storage::fs::Filesystem;
 
 extern "C" { static mut __lboot_end: u8; }
 #[no_mangle]
@@ -34,24 +41,22 @@ pub extern "C" fn ruststart() -> ! {
     }
 
     output::init();
-    output::puts("This is a test\n");
 
-    let mut bcall = bios::BiosCall {
-        int_n: 0x13,
-        eax: 0,
-        edx: 0,
-        ..Default::default()
-    };
-    unsafe { bcall.call(); }
-
-    let blk = BiosBlockDevice::new(0x00).unwrap();
-    let rdata = blk.read(0, 512);
-    match rdata {
-        Ok(data) => {
-            output::hexdump(&data);
+    let blk = Rc::new(RefCell::new(BiosBlockDevice::new(0x00).unwrap())) as Rc<RefCell<dyn BlockDevice>>;
+    let fs = FATFilesystem::init(&blk, 0);
+    match fs.borrow().find_file(None, "RLBOOT/RLBOOT.CFG") {
+        Ok(file) => {
+            match file.read(0, file.get_size()) {
+                Ok(data) => {
+                    output::hexdump(&data, 0, 0);
+                },
+                Err(_) => {
+                    println!("File read failure");
+                }
+            }
         },
         Err(_) => {
-            println!("Read failure");
+            println!("File open failure");
         }
     }
 
@@ -62,8 +67,12 @@ pub extern "C" fn ruststart() -> ! {
 
 #[inline(never)]
 #[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
+fn panic(info: &PanicInfo) -> ! {
     //_info.to_string()
+    match info.message() {
+        Some(msg) => println!("panic(): {}", msg),
+        None      => println!("panic()")
+    }
     loop {
         atomic::compiler_fence(Ordering::SeqCst);
     }
