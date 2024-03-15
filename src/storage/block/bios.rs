@@ -3,11 +3,12 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use alloc::vec;
-use core::ptr::addr_of_mut;
+use core::ptr::{addr_of, addr_of_mut};
 use core::fmt::{Error,Write};
+use core::usize;
 
 use crate::storage::block::BlockDevice;
-use crate::bios;
+use crate::bios::{self, BiosCall};
 use crate::io::output;
 
 pub struct BiosBlockDevice {
@@ -40,18 +41,14 @@ impl BiosBlockDevice {
         let mut bcall = bios::BiosCall {
             int_n: 0x13,
             eax: 0,
-            edx: 0,
+            edx: self.bios_id as u32,
             ..Default::default()
         };
         unsafe { bcall.call(); }
     }
 
     fn floppy_read_sector(&self, offset: isize) -> Result<Vec<u8>, Error> {
-        let mut bcall = bios::BiosCall {
-            int_n: 0x13,
-            eax: 0x0201,
-            ..Default::default()
-        };
+        let offset = offset / 512;
 
         let track: u16 = (offset / self.sectors_per_track as isize) as u16;
         let sector: u8 = ((offset % self.sectors_per_track as isize) + 1) as u8;
@@ -60,22 +57,30 @@ impl BiosBlockDevice {
 
         let mut data: [u8; 512] = [0; 512];
 
+        if addr_of!(data) as usize > 0xFE00 {
+            println!("Data buffer too high!");
+            return Err(Error);
+        }
+
         let mut attempts = 4;
         while attempts > 0 {
-            println!("Attempting to read T:H:S: {}:{}:{}", track, head, sector);
             attempts -= 1;
 
-            bcall.ebx = addr_of_mut!(data) as u32;
-            bcall.ecx = (sector as u16 | (track << 8)) as u32;
-            bcall.edx = (self.bios_id as u16 | ((head as u16) << 8)) as u32;
+            let mut bcall = BiosCall {
+                int_n: 0x13,
+                eax:   0x0201,
+                ebx:   addr_of_mut!(data) as u32,
+                ecx:   (sector as u16 | (track << 8)) as u32,
+                edx:   (self.bios_id as u16 | ((head as u16) << 8)) as u32,
+                ..Default::default()
+            };
+
             unsafe { bcall.call(); }
 
             if (bcall.eflags & bios::EFLAGS_CF) == 0 {
-                println!("Read success");
                 return Ok(data.to_vec());
             }
 
-            println!("EFLAGS: {:x}", bcall.eflags);
             self.floppy_reset();
         }
 
