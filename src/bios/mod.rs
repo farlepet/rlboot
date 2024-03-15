@@ -1,4 +1,9 @@
 #![allow(dead_code)]
+
+use core::fmt::Write;
+
+use crate::io::output;
+
 pub const EFLAGS_CF: u32 = 1 <<  0; //< Carry flag
 pub const EFLAGS_PF: u32 = 1 <<  2; //< Parity flag
 pub const EFLAGS_AF: u32 = 1 <<  4; //< Auxiliary flag
@@ -48,6 +53,14 @@ extern "C" {
 impl BiosCall {
     pub unsafe fn call(&mut self) {
         bios_call_asm(self);
+    }
+
+    pub fn print(&self) {
+        println!("BiosCall {:02x}:", self.int_n);
+        println!("  EAX: {:08x} EBX: {:08x}", self.eax, self.ebx);
+        println!("  ECX: {:08x} EDX: {:08x}", self.ecx, self.edx);
+        println!("  ESI: {:08x} EDI: {:08x}", self.esi, self.edi);
+        println!("  EFLAGS: {:08x}", self.eflags);
     }
 }
 
