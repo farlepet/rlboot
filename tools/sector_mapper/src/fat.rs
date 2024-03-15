@@ -284,11 +284,11 @@ union FatDataBootsectorExt {
 
 #[repr(C, packed(1))]
 pub struct FatDataBootsector {
-    _jump: [u8; 3], //< Jump to code
-    name:  [u8; 8], //< OEM name, or name of formatting utility
-    bytes_per_sector: u16, //< Bytes per sector
+    _jump: [u8; 3],          //< Jump to code
+    name:  [u8; 8],          //< OEM name, or name of formatting utility
+    bytes_per_sector: u16,   //< Bytes per sector
     sectors_per_cluster: u8, //< Sectors per cluster
-    reserved_sectors: u16, //< Number of reserved sectors
+    reserved_sectors: u16,   //< Number of reserved sectors
     fat_copies: u8,          //< Number of FAT copies
     root_dir_entries: u16,   //< Number of root directory entries
     total_sectors: u16,      //< Total number of sectors in the filesystem, overriden by `total_sectors_big`
@@ -303,9 +303,9 @@ pub struct FatDataBootsector {
 
     ext: FatDataBootsectorExt, //< FAT12/16/32-specific data
 
-    pub stage2_map_sector: u16,  //< rlboot-specific: First sector of stage2 sector map
-    stage2_addr: u16,        //< rlboot-specific: Address at which to load stage2
-    signature: u16           //< Boot sector signature: 0x55, 0xAA
+    pub stage2_map_sector: u16, //< rlboot-specific: First sector of stage2 sector map
+    stage2_addr: u16,           //< rlboot-specific: Address at which to load stage2
+    signature: u16              //< Boot sector signature: 0x55, 0xAA
 }
 const _FAT_BOOTSECTOR_SZ_TEST: [u8; 512] = [0; mem::size_of::<FatDataBootsector>()];
 
