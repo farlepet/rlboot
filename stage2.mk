@@ -7,6 +7,7 @@ STAGE2      = $(S2_BUILDDIR)/stage2.bin
 CARGO ?= cargo
 CARGO_TARGET = i386-unknown-none
 CARGO_FLAGS  = -Z build-std="core,alloc" --target=$(CARGO_TARGET).json
+RUSTFLAGS    =
 
 ifeq ($(DEBUG), 1)
 CARGO_FLAGS      += --features=verbose_panic
@@ -15,7 +16,11 @@ CARGO_RELEASE_DIR = "debug"
 else
 CARGO_RELEASE    ?= --release
 CARGO_RELEASE_DIR = "release"
+RUSTFLAGS        += -Z location-detail=none
+CARGO_FLAGS      += -Z build-std-features=panic_immediate_abort
 endif
+
+export RUSTFLAGS
 
 
 S2_SRCDIR = src
