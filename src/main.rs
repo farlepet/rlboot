@@ -68,16 +68,19 @@ pub extern "C" fn ruststart() -> ! {
 #[inline(never)]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    //_info.to_string()
-    match info.message() {
-        Some(msg) => println!("panic(): {}", msg),
-        None      => println!("panic()")
-    }
-    match info.location() {
-        Some(msg) => println!("  Occured at {}", msg),
-        None      => {}
+    #[cfg(feature = "verbose_panic")]
+    {
+        match info.message() {
+            Some(msg) => println!("panic(): {}", msg),
+            None      => println!("panic()")
+        }
+        match info.location() {
+            Some(msg) => println!("  Occured at {}", msg),
+            None      => {}
+        }
     }
     loop {
         atomic::compiler_fence(Ordering::SeqCst);
     }
 }
+

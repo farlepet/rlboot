@@ -9,19 +9,23 @@ include = [ "src/**/*", "Cargo.toml" ]
 
 [profile.dev]
 panic = "abort" # Disable stack unwinding
+opt-level = "z"
+# Using fat LTO here causes undefined references to panic
+lto = "thin"
+codegen-units = 1
 
 [profile.release]
 panic = "abort" # Disable stack unwinding
 opt-level = "z"
-lto = true
-#codegen-units = 1
+lto = "fat"
+codegen-units = 1
 
 [lib]
 path = "src/main.rs"
 crate-type = ["staticlib"]
 
 [features]
-io = []
+verbose_panic = []
 
 [dependencies]
 linked_list_allocator = "0.10.5"

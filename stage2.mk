@@ -6,7 +6,17 @@ STAGE2      = $(S2_BUILDDIR)/stage2.bin
 
 CARGO ?= cargo
 CARGO_TARGET = i386-unknown-none
-CARGO_RELEASE = release
+CARGO_FLAGS  = -Z build-std="core,alloc" --target=$(CARGO_TARGET).json
+
+ifeq ($(DEBUG), 1)
+CARGO_FLAGS      += --features=verbose_panic
+CARGO_RELEASE    ?=
+CARGO_RELEASE_DIR = "debug"
+else
+CARGO_RELEASE    ?= --release
+CARGO_RELEASE_DIR = "release"
+endif
+
 
 S2_SRCDIR = src
 S2_INCDIR = inc
@@ -35,16 +45,16 @@ S2_OBJS = $(filter %.o,$(patsubst $(S2_SRCDIR)/%.c,$(S2_BUILDDIR)/%.o,$(S2_SRCS)
                        $(patsubst $(S2_SRCDIR)/%.s,$(S2_BUILDDIR)/%.o,$(S2_SRCS)))
 S2_DEPS = $(filter %.d,$(patsubst $(S2_SRCDIR)/%.c,$(S2_BUILDDIR)/%.d,$(S2_SRCS)))
 
-S2_RUST_OBJ = target/$(CARGO_TARGET)/$(CARGO_RELEASE)/librlboot.a
+S2_RUST_OBJ = target/$(CARGO_TARGET)/$(CARGO_RELEASE_DIR)/librlboot.a
 
 $(STAGE2): $(S2_OBJS) $(S2_RUST_OBJ)
 	@echo -e "\033[32m    \033[1mLD\033[21m    \033[34m$@\033[0m"
-	$(Q) $(LD) $(S2_LDFLAGS) -r -o $(STAGE2).o $(S2_OBJS) $(S2_RUST_OBJ)
+	$(Q) $(LD) -Ttext=0x7e00 $(S2_LDFLAGS) -r -o $(STAGE2).o $(S2_OBJS) $(S2_RUST_OBJ)
 	$(Q) $(CC) $(S2_CFLAGS) -o $(STAGE2).elf $(STAGE2).o -T stage2.ld -nostdlib -lgcc -latomic
 	$(Q) $(OBJCOPY) -O binary --only-section=.text --only-section=.rodata --only-section=.data $(STAGE2).elf $@
 
 $(S2_RUST_OBJ):
-	$(Q) $(CARGO) build -Z build-std="core,alloc" --target=$(CARGO_TARGET).json --$(CARGO_RELEASE)
+	$(Q) $(CARGO) build $(CARGO_RELEASE) $(CARGO_FLAGS)
 
 #$(S2_BUILDDIR)/%.o: $(S2_SRCDIR)/%.c
 #	@echo -e "\033[32m    \033[1mCC\033[21m    \033[34m$<\033[0m"

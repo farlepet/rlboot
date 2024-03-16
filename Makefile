@@ -83,5 +83,6 @@ emu-sock-dbg: $(FLOPPY)
 
 clean: stage1_clean stage2_clean
 	$(Q) rm -f $(STAGE1) $(FLOPPY)
+	$(Q) cargo clean --release --manifest-path=$(SECTOR_MAPPER)
 
 .PHONY: clean emu emu-dbg $(SECTOR_MAPPER)
