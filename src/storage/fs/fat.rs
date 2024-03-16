@@ -14,11 +14,6 @@ use crate::storage::{block::BlockDevice, fs::FileAttribute};
 use crate::io::output;
 use super::{File, Filesystem};
 
-struct FATFilesystemCache {
-    cluster: isize, //< Offset of cached cluster into filesystem
-    rank: u8,       //< Rank of entry, indicating which was last used
-    data: Vec<u8>
-}
 
 pub struct FATFilesystem {
     offset: isize, //< Offset of filesystem into block device
@@ -31,7 +26,7 @@ pub struct FATFilesystem {
 
     rootdir: FATFile, //< FATFile representing root directory
 
-    cache: Vec<FATFilesystemCache>, //< FAT cluster cache
+    cache: Rc<RefCell<FATFilesystemCache>>, //< FAT cluster cache
 
     block: Rc<RefCell<dyn BlockDevice>>, //< Underlying block device
 
@@ -133,7 +128,7 @@ impl FATFilesystem {
                     attr: FileAttribute::Directory as u32,
                     fs: me.clone()
                 },
-                cache: vec!(),
+                cache: Rc::new(RefCell::new(FATFilesystemCache::new(4))),
 
                 block: Rc::clone(blockdev),
                 rc: me.clone(),
@@ -162,12 +157,23 @@ impl FATFilesystem {
     fn read_fat_data(&self, off: usize, sz: usize) -> Result<u32, Error> {
         let read_addr = off - (off % self.sector_size);
 
-        let buf = match self.block.borrow().read(read_addr as isize, self.cluster_size) {
-            Ok(data) => data,
-            Err(err) => return Err(err)
+        let mut cache = self.cache.borrow_mut();
+
+        let buf = match cache.find(read_addr) {
+            Some(data) => data,
+            None       => {
+                match self.block.borrow().read(read_addr as isize, self.cluster_size) {
+                    Ok(data) => {
+                        cache.add(read_addr, data.clone());
+                        data
+                    },
+                    Err(err) => return Err(err)
+                }
+            }
         };
 
-        let value = u32::from_le_bytes(buf[off..(off+4)].try_into().unwrap());
+        let pos = off - read_addr;
+        let value = u32::from_le_bytes(buf[pos..(pos+4)].try_into().unwrap());
 
         match sz {
             1 => Ok(value & 0x000000FF),
@@ -181,12 +187,6 @@ impl FATFilesystem {
     fn get_fat_entry(&self, cluster: usize) -> Result<u32, Error> {
         /* TODO: Support FAT16/FAT32 */
         let offset = self.fat_offset as usize + ((cluster * 3) / 2);
-
-        /*let buf: [u8; 2] = match self.block.borrow().read(offset, self.cluster_size) {
-            Ok(file) => file.try_into().unwrap(),
-            Err(err) => return Err(err)
-        };
-        let mut entry = u16::from_le_bytes(buf);*/
 
         let mut entry = if (offset % self.cluster_size) == (self.cluster_size - 1) {
             self.read_fat_data(offset, 1).unwrap() |
@@ -342,6 +342,68 @@ impl File for FATFile {
     }
 }
 
+
+struct FATFilesystemCacheItem {
+    cluster: usize, //< Offset of cached cluster into filesystem
+    rank: u8,       //< Rank of entry, indicating which was last used
+    data: Vec<u8>
+}
+
+struct FATFilesystemCache {
+    items: Vec<FATFilesystemCacheItem>
+}
+
+impl FATFilesystemCache {
+    fn new(count: usize) -> FATFilesystemCache {
+        let mut ffc = FATFilesystemCache {
+            items: vec!()
+        };
+
+        for _ in 0..count {
+            ffc.items.push(FATFilesystemCacheItem {
+                cluster: usize::MAX,
+                rank: 0,
+                data: vec!()
+            })
+        }
+
+        ffc
+    }
+
+    fn touch(&mut self, index: usize) {
+        let old_rank = self.items[index].rank;
+        for item in self.items.iter_mut() {
+            if item.rank < old_rank {
+                item.rank += 1;
+            }
+        }
+        self.items[index].rank = 0;
+    }
+
+    fn find(&mut self, cluster: usize) -> Option<Vec<u8>> {
+        for idx in 0..self.items.len() {
+            if self.items[idx].cluster == cluster {
+                self.touch(idx);
+                return Some(self.items[idx].data.clone());
+            }
+        }
+
+        None
+    }
+
+    fn add(&mut self, cluster: usize, data: Vec<u8>) {
+        let mut entry = 0;
+        /* Find the highest-ranked (oldest) entry */
+        for idx in 1..self.items.len() {
+            if self.items[idx].rank > self.items[entry].rank {
+                entry = idx;
+            }
+        }
+
+        self.items[entry].cluster = cluster;
+        self.items[entry].data    = data;
+    }
+}
 
 #[allow(dead_code)]
 #[repr(C, packed(1))]
