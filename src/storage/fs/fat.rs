@@ -11,8 +11,8 @@ use core::fmt::{Error, Write};
 use core::ptr;
 
 use crate::storage::{block::BlockDevice, fs::FileAttribute};
-use crate::io::output::{self, hexdump};
-use super::{File, Filesystem, FilesystemIdent};
+use crate::io::output;
+use super::{File, Filesystem};
 
 struct FATFilesystemCache {
     cluster: isize, //< Offset of cached cluster into filesystem
@@ -36,8 +36,6 @@ pub struct FATFilesystem {
     block: Rc<RefCell<dyn BlockDevice>>, //< Underlying block device
 
     rc: Weak<RefCell<Self>>,
-
-    ident: FilesystemIdent
 }
 
 impl Filesystem for FATFilesystem {
@@ -47,10 +45,10 @@ impl Filesystem for FATFilesystem {
 
     fn find_file(&self, start_dir: Option<&dyn File>, path: &str) -> Result<Box<dyn File>, core::fmt::Error> {
         let mut dir: FATFile = if path.starts_with('/') || (start_dir.is_none()) {
-            self.rootdir
+            self.rootdir.clone()
         } else {
             /* Not ideal, but is fine while we only have one FS */
-            *start_dir.unwrap().as_any().downcast_ref::<FATFile>().unwrap()
+            start_dir.unwrap().as_any().downcast_ref::<FATFile>().unwrap().clone()
         };
 
         let mut cpath = path;
@@ -63,7 +61,7 @@ impl Filesystem for FATFilesystem {
             let res = self.find_file(Some(&dir), dirname);
             if res.is_err() { return res; }
 
-            dir = *res.unwrap().as_any().downcast_ref::<FATFile>().unwrap();
+            dir = res.unwrap().as_any().downcast_ref::<FATFile>().unwrap().clone();
 
             if (dir.attr & FileAttribute::Directory as u32) == 0 {
                 return Err(Error)
@@ -133,14 +131,12 @@ impl FATFilesystem {
                     first_cluster: root_first_cluster,
                     size: root_size,
                     attr: FileAttribute::Directory as u32,
-                    fs_ident: 0 /* TODO */
+                    fs: me.clone()
                 },
                 cache: vec!(),
 
                 block: Rc::clone(blockdev),
                 rc: me.clone(),
-
-                ident: 0 /* TODO */
             })
         })
     }
@@ -159,7 +155,7 @@ impl FATFilesystem {
             first_cluster: self.data_offset + (dirent.start_cluster as isize - 2) * self.cluster_size as isize,
             size: dirent.filesize as usize,
             attr,
-            fs_ident: self.ident
+            fs: self.rc.clone()
         }
     }
 
@@ -261,9 +257,13 @@ impl FATFilesystem {
         }
         true
     }
+
+    pub fn get_cluster_size(&self) -> usize {
+        self.cluster_size
+    }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct FATFile {
     first_cluster: isize, //< Offset into filesystem of first data cluster
 
@@ -271,14 +271,10 @@ pub struct FATFile {
 
     attr: u32,   //< File attributes
 
-    fs_ident: FilesystemIdent
+    fs: Weak<RefCell<FATFilesystem>>,
 }
 
 impl File for FATFile {
-    fn get_name(&self) -> &str {
-        ""
-    }
-
     fn get_size(&self) -> usize {
         self.size
     }
@@ -287,8 +283,54 @@ impl File for FATFile {
         self.attr
     }
 
-    fn read(&self, offset: isize, size: usize) -> Result<&Vec<u8>, Error> {
-        Err(Error)
+    fn read(&self, mut offset: isize, size: usize) -> Result<Vec<u8>, Error> {
+        if !((self.attr & FileAttribute::Directory as u32) != 0) && (offset as usize + size) > self.size {
+            println!("FATFile: Attempt to read past end of file");
+            return Err(Error);
+        }
+
+        let fs = self.fs.upgrade().expect("Could not upgrade FATFile::fs");
+
+        let mut clust = self.first_cluster;
+
+        let cluster_size = fs.borrow().get_cluster_size();
+        let block = fs.borrow().block.clone();
+
+        while offset as usize > cluster_size {
+            clust = match fs.borrow().get_next_cluster(clust) {
+                Ok(Some(cluster)) => cluster,
+                Ok(None)          => return Err(Error),
+                Err(err)          => return Err(err)
+            };
+            offset -= cluster_size as isize;
+        }
+
+        let mut read_data: Vec<u8> = vec!();
+
+        let mut pos = 0;
+        while pos < size {
+            let data = match block.borrow().read(clust, cluster_size) {
+                Ok(res)  => res,
+                Err(err) => return Err(err)
+            };
+
+            if (size - pos) <= (cluster_size - offset as usize) {
+                read_data.extend_from_slice(&data[offset as usize..(size-pos)]);
+            } else {
+                read_data.extend_from_slice(&data[offset as usize..(cluster_size - offset as usize)]);
+
+                clust = match fs.borrow().get_next_cluster(clust) {
+                    Ok(Some(cluster)) => cluster,
+                    Ok(None)          => return Err(Error),
+                    Err(err)          => return Err(err)
+                };
+            }
+
+            offset = 0;
+            pos += cluster_size;
+        }
+
+        Ok(read_data)
     }
 
     fn close(&self) {
@@ -297,10 +339,6 @@ impl File for FATFile {
 
     fn as_any(&self) -> &dyn Any {
         self
-    }
-
-    fn get_fs_ident(&self) -> super::FilesystemIdent {
-        self.fs_ident
     }
 }
 

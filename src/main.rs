@@ -73,6 +73,10 @@ fn panic(info: &PanicInfo) -> ! {
         Some(msg) => println!("panic(): {}", msg),
         None      => println!("panic()")
     }
+    match info.location() {
+        Some(msg) => println!("  Occured at {}", msg),
+        None      => {}
+    }
     loop {
         atomic::compiler_fence(Ordering::SeqCst);
     }
