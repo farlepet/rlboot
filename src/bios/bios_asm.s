@@ -132,11 +132,7 @@ _int_id:
 .code32
 1:
     /* 5-7. N/A */
-    /* 8. Set up task state segment */
-    /* @todo This is currently causing a GPF - Not sure it's strictly required
-     * though since we set it up earlier. */
-    /*movw $0x28, %ax
-    ltr %ax*/
+    /* 8. Set up task state segment (unused) */
 
     /* 9. Reload segment registers DS, SS, ES, FS, GS */
     movw $0x10, %ax

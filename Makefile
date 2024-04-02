@@ -54,29 +54,31 @@ $(BUILDDIR):
 $(SECTOR_MAPPER):
 	$(Q) cargo build --release --manifest-path=$(SECTOR_MAPPER)
 
+QEMU_MEM := 1M
+
 emu: $(FLOPPY)
-	$(Q) qemu-system-i386 -fda $(FLOPPY) -serial stdio -machine pc -no-reboot
+	$(Q) qemu-system-i386 -m $(QEMU_MEM) -fda $(FLOPPY) -serial stdio -machine pc -no-reboot
 
 # Create socket for COM1
 # NOTE: For certain applications, like XMODEM transfers, direct read/write of
 # the socket is too fast, as qemu does not actually respect the 8250's set baud
 # rate unless using a physical port. 
 emu-sock: $(FLOPPY)
-	$(Q) qemu-system-i386 -fda $(FLOPPY) -machine pc -no-reboot                         \
+	$(Q) qemu-system-i386 -m $(QEMU_MEM) -fda $(FLOPPY) -machine pc -no-reboot                         \
 	                      -chardev socket,id=serial0,path=./com1.sock,server=on,debug=9 \
 	                      -serial chardev:serial0
 
 # Emulate more realistic floppy disk speeds
 emu-slow: $(FLOPPY)
-	$(Q) qemu-system-i386 -drive file=$(FLOPPY),if=floppy,format=raw,bps=4000 \
+	$(Q) qemu-system-i386 -m $(QEMU_MEM) -drive file=$(FLOPPY),if=floppy,format=raw,bps=4000 \
 		                  -serial stdio -machine pc -no-reboot
 
 # Enable GDB server
 emu-dbg: $(FLOPPY)
-	$(Q) qemu-system-i386 -fda $(FLOPPY) -serial stdio -machine pc -no-reboot -S -s
+	$(Q) qemu-system-i386 -m $(QEMU_MEM) -fda $(FLOPPY) -serial stdio -machine pc -no-reboot -S -s
 
 emu-sock-dbg: $(FLOPPY)
-	$(Q) qemu-system-i386 -fda $(FLOPPY) -machine pc -no-reboot -S -s           \
+	$(Q) qemu-system-i386 -m $(QEMU_MEM) -fda $(FLOPPY) -machine pc -no-reboot -S -s           \
 	                      -chardev socket,id=serial0,path=./com1.sock,server=on \
 	                      -serial chardev:serial0
 
