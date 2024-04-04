@@ -41,6 +41,8 @@ start:
 1:
     /* 5-7. N/A */
     /* 8. Set up task state segment */
+    movw $0x28, %ax
+    ltr %ax
 
     /* 9. Reload segment registers DS, SS, ES, FS, GS */
     movw $0x10, %ax
@@ -54,15 +56,15 @@ start:
     lidt (idtr)
 
     /* 11. Re-enable interrupts and NMI */
-    /* This happens after the IDT is set up */
+    /* @todo Properly setup IDT, then we can re-enable interrupts */
+    /* sti */
     /* Enable NMI */
-    /* @todo? */
     /*inb  $0x70, %al
     andb $0x7F, %al
     outb %al,  $0x80
     inb  $0x71, %al*/
 
-    /* Enable A20 line @todo Attempt multiple methods, perhaps in Rust */
+    /* Enable A20 line @todo Attempt multiple methods, perhaps in C */
     inb   $0x92, %al
     testb $0x02, %al
     jnz   1f
@@ -121,10 +123,52 @@ gdt:
     /* 0x10: 32-bit Data segment */
     .long 0x0000FFFF
     .long 0x00CF9200
+    /* 0x18: 16-bit Code segment */
+    .long 0x0000FFFF
+    .long 0x000F9A00
+    /* 0x20: 16-bit Data segment */
+    .long 0x0000FFFF
+    .long 0x000F9200
+    /* 0x28: Task segment */
+    .word ((tss_end - tss) - 1)
+    .word tss /* @note Since we are in the lower 16-bits of memory, we can just use the address here */
+    .long 0x00408900
 gdt_end:
 
 idt:
     /* @todo */
     .quad 0
 idt_end:
+
+/* @note Within the bootloader, we will never be in any ring other than 0 */
+tss:
+    .long 0x00000000 /* Prev task link */
+    /* @note Since we are never leaving ring 0, I don't _think_ we need to set ESP0 */
+    .long 0x00000000 /* ESP0 */
+    .long 0x00000010 /* SS0 */
+    .long 0x00000000 /* ESP1 */
+    .long 0x00000010 /* SS1 */
+    .long 0x00000000 /* ESP2 */
+    .long 0x00000010 /* SS2 */
+    .long 0x00000000 /* CR3 */
+    .long 0x00000000 /* EIP */
+    .long 0x00000000 /* EFLAGS */
+    .long 0x00000000 /* EAX */
+    .long 0x00000000 /* ECX */
+    .long 0x00000000 /* EDX */
+    .long 0x00000000 /* EBX */
+    .long 0x00000000 /* ESP */
+    .long 0x00000000 /* EBP */
+    .long 0x00000000 /* ESI */
+    .long 0x00000000 /* EDI */
+    .long 0x00000010 /* ES */
+    .long 0x0000000C /* CS */
+    .long 0x00000010 /* SS */
+    .long 0x00000010 /* DS */
+    .long 0x00000010 /* FS */
+    .long 0x00000010 /* GS */
+    .long 0x00000000 /* LDT selector */
+    .word 0x0000 /* Debug trap enable */
+    .word ((tss_end - tss) - 1) /* IO Map Base Address */
+tss_end:
 

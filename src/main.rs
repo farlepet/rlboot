@@ -19,12 +19,10 @@ use core::fmt::Write;
 
 #[macro_use]
 mod io;
-mod mm;
 mod bios;
 mod storage;
 
 use crate::io::output;
-use crate::mm::gdt;
 use crate::storage::block::bios::BiosBlockDevice;
 use crate::storage::block::BlockDevice;
 use crate::storage::fs::fat::FATFilesystem;
@@ -33,8 +31,6 @@ use crate::storage::fs::Filesystem;
 extern "C" { static mut __lboot_end: u8; }
 #[no_mangle]
 pub extern "C" fn ruststart() -> ! {
-    gdt::init();
-
     unsafe {
         /* Assuming fully populated conventional memory. Could also use INT 12.
          * Realistically, it's unlikely this will ever be used on a system with
