@@ -72,7 +72,11 @@ start:
     outb  %al, $0x92
 1:
 
+    /* Clear any junk in the high side of edx (drive number) */
+    andl $0xff, %edx
+
     /* Call into C code */
+    pushl %edx
     call ruststart
 
     jmp .

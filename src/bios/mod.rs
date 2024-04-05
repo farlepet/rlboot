@@ -49,7 +49,7 @@ impl Default for BiosCall {
 }
 
 extern "C" {
-    fn bios_call_asm(bcall: u32);
+    fn bios_call_asm(bcall: *mut BiosCall);
 }
 
 impl BiosCall {
@@ -58,7 +58,7 @@ impl BiosCall {
         intr::interrupts_disable();
 
         pic::remap_bios();
-        bios_call_asm(addr_of!(self) as u32);
+        bios_call_asm(self);
         pic::remap();
 
         if int_en { intr::interrupts_enable(); }

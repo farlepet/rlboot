@@ -31,7 +31,7 @@ use crate::storage::fs::Filesystem;
 
 extern "C" { static mut __lboot_end: u8; }
 #[no_mangle]
-pub extern "C" fn ruststart() -> ! {
+pub extern "C" fn ruststart(boot_drive: u32) -> ! {
     unsafe {
         /* Assuming fully populated conventional memory. Could also use INT 12.
          * Realistically, it's unlikely this will ever be used on a system with
@@ -43,13 +43,13 @@ pub extern "C" fn ruststart() -> ! {
 
     output::init();
 
-    println!("Output setup");
+    println!("RLBoot v{} -- (c) 2024 Peter Farley", env!("CARGO_PKG_VERSION"));
 
-    intr::init();
+    /* Currently, enabling interrupts breaks BIOS calls */
+    //intr::init();
+    //println!("Interrupts enabled");
 
-    println!("Interrupts enabled");
-
-    let blk = Rc::new(RefCell::new(BiosBlockDevice::new(0x00).unwrap())) as Rc<RefCell<dyn BlockDevice>>;
+    let blk = Rc::new(RefCell::new(BiosBlockDevice::new(boot_drive as u8).unwrap())) as Rc<RefCell<dyn BlockDevice>>;
     let fs = FATFilesystem::init(&blk, 0);
     match fs.borrow().find_file(None, "RLBOOT/RLBOOT.CFG") {
         Ok(file) => {
@@ -68,7 +68,7 @@ pub extern "C" fn ruststart() -> ! {
         }
     }
 
-    let mut port = serial::create_port(serial::SerialPortBase::COM1, &serial::SerialConfig {
+    /*let mut port = serial::create_port(serial::SerialPortBase::COM1, &serial::SerialConfig {
         baud: 115200,
         rxfifo_sz: 32,
         txfifo_sz: 32,
@@ -76,7 +76,7 @@ pub extern "C" fn ruststart() -> ! {
         use_dtr: false,
     });
 
-    let _ = write!(port, "This is a test!\n");
+    let _ = write!(port, "This is a test!\n");*/
 
     println!("This is a new line");
 
