@@ -6,6 +6,7 @@ use core::fmt::Error;
 
 use alloc::vec::Vec;
 
+#[allow(dead_code)]
 pub trait BlockDevice {
     fn get_size(&self) -> usize;
 

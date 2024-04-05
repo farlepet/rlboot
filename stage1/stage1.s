@@ -2,7 +2,7 @@
 
 /* Source for boot sector. Must fit within 512 bytes. */
 
-stack_top = 0x1000     /* Top of temporary stack */
+stack_top = 0x4000     /* Top of temporary stack */
 
 IS_FLOPPY = 1
 

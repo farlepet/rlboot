@@ -19,6 +19,7 @@ pub fn init() {
     }
 }
 
+#[allow(dead_code)]
 pub fn puts(line: &str) {
     /* TODO: Support selecting output */
     unsafe {
@@ -33,6 +34,7 @@ pub fn putchar(ch: u8) {
     }
 }
 
+#[allow(dead_code)]
 pub fn hexdump(data: &Vec<u8>, off: usize, mut len: usize) {
     if off >= data.len() {
         return;
@@ -62,6 +64,7 @@ pub fn hexdump(data: &Vec<u8>, off: usize, mut len: usize) {
     putchar(b'\n');
 }
 
+#[allow(dead_code)]
 pub fn hexdump_obj<T: Sized>(object: &T, off: usize, mut len: usize) {
     let data = unsafe { slice::from_raw_parts((object as *const T) as *const u8, mem::size_of::<T>()) };
 

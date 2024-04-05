@@ -1,8 +1,10 @@
 #![allow(dead_code)]
 
 use core::fmt::Write;
+use core::ptr::addr_of;
 
 use crate::io::output;
+use crate::intr::{self, pic};
 
 pub const EFLAGS_CF: u32 = 1 <<  0; //< Carry flag
 pub const EFLAGS_PF: u32 = 1 <<  2; //< Parity flag
@@ -47,12 +49,19 @@ impl Default for BiosCall {
 }
 
 extern "C" {
-    fn bios_call_asm(bcall: *mut BiosCall);
+    fn bios_call_asm(bcall: u32);
 }
 
 impl BiosCall {
     pub unsafe fn call(&mut self) {
-        bios_call_asm(self);
+        let int_en = intr::interrupts_enabled();
+        intr::interrupts_disable();
+
+        pic::remap_bios();
+        bios_call_asm(addr_of!(self) as u32);
+        pic::remap();
+
+        if int_en { intr::interrupts_enable(); }
     }
 
     pub fn print(&self) {

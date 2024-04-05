@@ -19,6 +19,7 @@ panic = "abort" # Disable stack unwinding
 opt-level = "z"
 lto = "fat"
 codegen-units = 1
+debug = true # Include debug symbols
 
 [lib]
 path = "src/main.rs"

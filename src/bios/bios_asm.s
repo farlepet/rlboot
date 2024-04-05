@@ -152,10 +152,10 @@ _int_id:
     /* 11. Re-enable interrupts */
     /* Interrupt enable is done in bios_call() */
     /* Enable NMI */
-    inb  $0x70, %al
+    /*inb  $0x70, %al
     andb $0x7F, %al
     outb %al,  $0x80
-    inb  $0x71, %al
+    inb  $0x71, %al*/
 
     popal
     ret

@@ -7,6 +7,7 @@ use alloc::vec::Vec;
 use core::any::Any;
 use core::fmt::Error;
 
+#[allow(dead_code)]
 pub trait File {
     fn get_size(&self) -> usize;
 
@@ -19,6 +20,7 @@ pub trait File {
     fn as_any(&self) -> &dyn Any;
 }
 
+#[allow(dead_code)]
 pub trait Filesystem {
     /// Get root file for this FS
     fn get_root(&self) -> &dyn File;
@@ -30,8 +32,6 @@ pub trait Filesystem {
     /// * path: Path to file
     fn find_file(&self, start_dir: Option<&dyn File>, path: &str) -> Result<Box<dyn File>, Error>;
 }
-
-
 
 #[repr(u32)]
 enum FileAttribute {
