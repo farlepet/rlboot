@@ -21,7 +21,9 @@ mod data;
 mod bios;
 mod intr;
 mod storage;
+mod config;
 
+use crate::config::Config;
 use crate::io::output;
 use crate::io::serial;
 use crate::storage::block::bios::BiosBlockDevice;
@@ -54,9 +56,13 @@ pub extern "C" fn ruststart(boot_drive: u32) -> ! {
     match fs.borrow().find_file(None, "RLBOOT/RLBOOT.CFG") {
         Ok(file) => {
             match file.read(0, file.get_size()) {
-                Ok(_data) => {
+                Ok(data) => {
                     //output::hexdump(&data, 0, 0);
                     println!("File read");
+                    match Config::load(data) {
+                        Some(cfg) => println!("Config loaded: \n{}", cfg),
+                        None      => println!("Error loading config")
+                    }
                 },
                 Err(_) => {
                     println!("File read failure");
