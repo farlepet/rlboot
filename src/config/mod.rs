@@ -1,9 +1,10 @@
-use core::fmt::Error;
-
 use alloc::{
+    boxed::Box,
     string::{String, ToString},
     vec::Vec,
 };
+
+use crate::storage::fs::File;
 
 #[derive(Default)]
 pub struct ModuleConfig {
@@ -37,7 +38,15 @@ impl core::fmt::Display for Config {
 }
 
 impl Config {
-    pub fn load(data: Vec<u8>) -> Option<Config> {
+    pub fn load(file: &Box<dyn File>) -> Option<Config> {
+        let data = match file.read(0, file.get_size()) {
+            Ok(data) => data,
+            Err(_) => {
+                /* TODO: display error */
+                return None;
+            }
+        };
+
         let mut conf = Config::default();
 
         let cstr = match String::from_utf8(data) {

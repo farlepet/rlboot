@@ -53,25 +53,17 @@ pub extern "C" fn ruststart(boot_drive: u32) -> ! {
 
     let blk = Rc::new(RefCell::new(BiosBlockDevice::new(boot_drive as u8).unwrap())) as Rc<RefCell<dyn BlockDevice>>;
     let fs = FATFilesystem::init(&blk, 0);
-    match fs.borrow().find_file(None, "RLBOOT/RLBOOT.CFG") {
-        Ok(file) => {
-            match file.read(0, file.get_size()) {
-                Ok(data) => {
-                    //output::hexdump(&data, 0, 0);
-                    println!("File read");
-                    match Config::load(data) {
-                        Some(cfg) => println!("Config loaded: \n{}", cfg),
-                        None      => println!("Error loading config")
-                    }
-                },
-                Err(_) => {
-                    println!("File read failure");
-                }
-            }
-        },
+    let cfg_file = match fs.borrow().find_file(None, "RLBOOT/RLBOOT.CFG") {
+        Ok(file) => file,
         Err(_) => {
-            println!("File open failure");
+            println!("Could not find config file!");
+            loop {};
         }
+    };
+
+    match Config::load(&cfg_file) {
+        Some(cfg) => println!("Config loaded: \n{}", cfg),
+        None      => println!("Error loading config")
     }
 
     /*let mut port = serial::create_port(serial::SerialPortBase::COM1, &serial::SerialConfig {
