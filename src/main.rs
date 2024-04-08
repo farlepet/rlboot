@@ -22,8 +22,10 @@ mod bios;
 mod intr;
 mod storage;
 mod config;
+mod exec;
 
 use crate::config::Config;
+use crate::exec::ExecFile;
 use crate::io::output;
 use crate::io::serial;
 use crate::storage::block::bios::BiosBlockDevice;
@@ -45,8 +47,9 @@ pub extern "C" fn ruststart(boot_drive: u32) -> ! {
 
     output::init();
 
-    println!("RLBoot v{} -- (c) 2024 Peter Farley", env!("CARGO_PKG_VERSION"));
+    println!("RLBoot v{} -- (c) 2024 Peter Farley\n", env!("CARGO_PKG_VERSION"));
 
+    println!("Heap size: {} KiB", HEAP.lock().size() / 1024);
     /* Currently, enabling interrupts breaks BIOS calls */
     //intr::init();
     //println!("Interrupts enabled");
@@ -61,9 +64,39 @@ pub extern "C" fn ruststart(boot_drive: u32) -> ! {
         }
     };
 
-    match Config::load(&cfg_file) {
-        Some(cfg) => println!("Config loaded: \n{}", cfg),
-        None      => println!("Error loading config")
+    let config = match Config::load(&cfg_file) {
+        Some(cfg) => cfg,
+        None => {
+            println!("Error loading config");
+            loop {};
+        }
+    };
+
+    println!("{}", config);
+
+    println!("Loading kernel {}", config.kernel_path);
+    let exec_file = match fs.borrow().find_file(None, &config.kernel_path) {
+        Ok(file) => file,
+        Err(_) => {
+            println!("Could not find kernel `{}`", config.kernel_path);
+            loop {};
+        }
+    };
+
+    let mut exec = match ExecFile::open(exec_file) {
+        Ok(exec) => exec,
+        Err(e) => {
+            println!("Could not load kernel as executable: {:?}", e);
+            loop {};
+        }
+    };
+
+    if exec.prepare(&config).is_err() {
+        println!("Could not prepare kernel");
+    }
+
+    if exec.load(&config).is_err() {
+        println!("Could not prepare kernel");
     }
 
     /*let mut port = serial::create_port(serial::SerialPortBase::COM1, &serial::SerialConfig {

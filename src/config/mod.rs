@@ -8,19 +8,19 @@ use crate::storage::fs::File;
 
 #[derive(Default)]
 pub struct ModuleConfig {
-    path: String,
-    name: String,
-    addr: usize,
-    size: usize,
+    pub path: String,
+    pub name: String,
+    pub addr: usize,
+    pub size: usize,
 }
 
 #[derive(Default)]
 pub struct Config {
-    version: u8,
-    kernel_path: String,
-    kernel_cmdline: String,
+    pub version: u8,
+    pub kernel_path: String,
+    pub kernel_cmdline: String,
 
-    modules: Vec<ModuleConfig>,
+    pub modules: Vec<ModuleConfig>,
 }
 
 impl core::fmt::Display for Config {

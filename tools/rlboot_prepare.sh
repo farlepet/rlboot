@@ -46,3 +46,7 @@ cargo run -q --release --manifest-path=$SECTOR_MAPPER 1 $FLOPPY "RLBOOT/STAGE2.B
 mcopy -D oO -i $FLOPPY $STAGE2_MAP ::/RLBOOT/STAGE2.MAP
 cargo run -q --release --manifest-path=$SECTOR_MAPPER 2 $FLOPPY "RLBOOT/STAGE2.MAP"
 
+# For easier testing
+if [[ -f KERNEL ]]; then
+    mcopy -D oO -i $FLOPPY KERNEL ::/KERNEL
+fi

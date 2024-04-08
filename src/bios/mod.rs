@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 
 use core::fmt::Write;
-use core::ptr::addr_of;
 
 use crate::io::output;
 use crate::intr::{self, pic};
