@@ -10,6 +10,7 @@ pub mod idt;
 
 use crate::bios::EFLAGS_IF;
 use crate::io::output;
+use crate::errors::ErrorCode;
 
 use self::{idt::{IDTEntry, IDT_FLAGS_INTR_32}, pic::{PIC_OFFSET_MASTER, PIC_OFFSET_SLAVE}};
 
@@ -77,9 +78,9 @@ pub fn init() {
     interrupts_enable();
 }
 
-pub fn interrupt_register(id: InterruptID, handler: impl Fn (u8, u32) + 'static) -> Result<(), Error> {
+pub fn interrupt_register(id: InterruptID, handler: impl Fn (u8, u32) + 'static) -> Result<(), ErrorCode> {
     if id >= InterruptID::MAX {
-        return Err(Error);
+        return Err(ErrorCode::OutOfBounds);
     }
     let id = id as usize;
 

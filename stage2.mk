@@ -55,7 +55,7 @@ S2_RUST_OBJ = target/$(CARGO_TARGET)/$(CARGO_RELEASE_DIR)/librlboot.a
 $(STAGE2): $(S2_OBJS) $(S2_RUST_OBJ)
 	@echo -e "\033[32m    \033[1mLD\033[21m    \033[34m$@\033[0m"
 	$(Q) $(LD) -Ttext=0x7e00 $(S2_LDFLAGS) -r -o $(STAGE2).o $(S2_OBJS) $(S2_RUST_OBJ)
-	$(Q) $(CC) $(S2_CFLAGS) -o $(STAGE2).elf $(STAGE2).o -T stage2.ld -nostdlib -lgcc -latomic
+	$(Q) $(CC) $(S2_CFLAGS) -o $(STAGE2).elf $(STAGE2).o -T stage2.ld -nostdlib -lgcc
 	$(Q) $(OBJCOPY) -O binary --only-section=.text --only-section=.rodata --only-section=.data $(STAGE2).elf $@
 
 $(S2_RUST_OBJ):

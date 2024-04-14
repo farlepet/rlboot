@@ -4,7 +4,7 @@ use alloc::{
     vec::Vec,
 };
 
-use crate::storage::fs::File;
+use crate::{errors::ErrorCode, storage::fs::File};
 
 #[derive(Default)]
 pub struct ModuleConfig {
@@ -38,23 +38,17 @@ impl core::fmt::Display for Config {
 }
 
 impl Config {
-    pub fn load(file: &Box<dyn File>) -> Option<Config> {
+    pub fn load(file: &Box<dyn File>) -> Result<Config, ErrorCode> {
         let data = match file.read(0, file.get_size()) {
             Ok(data) => data,
-            Err(_) => {
-                /* TODO: display error */
-                return None;
-            }
+            Err(e) => return Err(e)
         };
 
         let mut conf = Config::default();
 
         let cstr = match String::from_utf8(data) {
             Ok(st) => st,
-            Err(_) => {
-                /* TODO: display error */
-                return None;
-            }
+            Err(_) => return Err(ErrorCode::ConfigFormatError)
         };
 
         for line in cstr.lines() {
@@ -92,10 +86,10 @@ impl Config {
 
         if conf.version != 1 {
             /* TODO: Error */
-            return None;
+            return Err(ErrorCode::UnsupportedConfig);
         }
 
-        Some(conf)
+        Ok(conf)
     }
 
     fn parse_module(cfg: &str) -> Option<ModuleConfig> {

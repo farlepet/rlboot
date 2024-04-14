@@ -23,6 +23,7 @@ mod intr;
 mod storage;
 mod config;
 mod exec;
+mod errors;
 
 use crate::config::Config;
 use crate::exec::ExecFile;
@@ -54,21 +55,34 @@ pub extern "C" fn ruststart(boot_drive: u32) -> ! {
     //intr::init();
     //println!("Interrupts enabled");
 
-    let blk = Rc::new(RefCell::new(BiosBlockDevice::new(boot_drive as u8).unwrap())) as Rc<RefCell<dyn BlockDevice>>;
-    let fs = FATFilesystem::init(&blk, 0);
+
+    let blk = match BiosBlockDevice::new(boot_drive as u8) {
+        Ok(bbd) => Rc::new(RefCell::new(bbd)) as Rc<RefCell<dyn BlockDevice>>,
+        Err(e) => {
+            println!("Could not create block device: {}", e);
+            loop {}
+        },
+    };
+    let fs = match FATFilesystem::init(&blk, 0) {
+        Ok(fs) => fs,
+        Err(e) => {
+            println!("Could not open filesystem: {}", e);
+            loop {}
+        }
+    };
     let cfg_file = match fs.borrow().find_file(None, "RLBOOT/RLBOOT.CFG") {
         Ok(file) => file,
-        Err(_) => {
-            println!("Could not find config file!");
-            loop {};
+        Err(e) => {
+            println!("Could not find config file: {}", e);
+            loop {}
         }
     };
 
     let config = match Config::load(&cfg_file) {
-        Some(cfg) => cfg,
-        None => {
-            println!("Error loading config");
-            loop {};
+        Ok(cfg) => cfg,
+        Err(e) => {
+            println!("Error loading config: {}", e);
+            loop {}
         }
     };
 
@@ -77,26 +91,28 @@ pub extern "C" fn ruststart(boot_drive: u32) -> ! {
     println!("Loading kernel {}", config.kernel_path);
     let exec_file = match fs.borrow().find_file(None, &config.kernel_path) {
         Ok(file) => file,
-        Err(_) => {
-            println!("Could not find kernel `{}`", config.kernel_path);
-            loop {};
+        Err(e) => {
+            println!("Could not find kernel `{}`: {}", config.kernel_path, e);
+            loop {}
         }
     };
 
     let mut exec = match ExecFile::open(exec_file) {
         Ok(exec) => exec,
         Err(e) => {
-            println!("Could not load kernel as executable: {:?}", e);
-            loop {};
+            println!("Could not load kernel as executable: {:}", e);
+            loop {}
         }
     };
 
     if exec.prepare(&config).is_err() {
         println!("Could not prepare kernel");
+        loop {}
     }
 
     if exec.load(&config).is_err() {
         println!("Could not prepare kernel");
+        loop {}
     }
 
     /*let mut port = serial::create_port(serial::SerialPortBase::COM1, &serial::SerialConfig {
@@ -116,7 +132,7 @@ pub extern "C" fn ruststart(boot_drive: u32) -> ! {
 
 #[inline(never)]
 #[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
+fn cust_panic(info: &PanicInfo) -> ! {
     #[cfg(feature = "verbose_panic")]
     {
         match info.message() {

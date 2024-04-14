@@ -6,8 +6,8 @@ use alloc::boxed::Box;
 use alloc::vec;
 use alloc::vec::Vec;
 
+use crate::errors::ErrorCode;
 use crate::{config::Config, storage::fs::File};
-use crate::exec::ExecError;
 use super::{ExecFmt, ExecFmtTestResult};
 
 pub struct ExecFmtELF {
@@ -59,12 +59,12 @@ macro_rules! ua_read {
 }
 
 impl ExecFmt for ExecFmtELF {
-    fn prepare(&mut self, file: &Box<dyn File>, config: &Config) -> Result<(), ExecError> {
+    fn prepare(&mut self, file: &Box<dyn File>, config: &Config) -> Result<(), ErrorCode> {
         let ehdr: ElfHeader = match file.read(0, mem::size_of::<ElfHeader>()) {
             Ok(data) => unsafe {
                 core::ptr::read(data.as_ptr() as *const _)
             },
-            Err(_) => return Err(ExecError::FileReadError),
+            Err(e) => return Err(e),
         };
 
         self.ehdr = Some(ehdr);
@@ -72,16 +72,16 @@ impl ExecFmt for ExecFmtELF {
         if (ehdr.ident.class != ElfClass::Bit32) ||
            (ehdr.ident.data  != ElfDataFormat::LittleEndian) ||
            (ua_read!(ehdr.machine)     != ElfMachine::X86) {
-            return Err(ExecError::WrongArchitecture);
+            return Err(ErrorCode::UnsupportedExecOptions);
         }
 
         if ua_read!(ehdr.etype) != ElfType::Executable {
-            return Err(ExecError::UnsupportedOptions);
+            return Err(ErrorCode::UnsupportedExecOptions);
         }
 
         if unsafe { ehdr.data.e32.entry } < 0x100000 {
             /* Don't support entrypoint < 1 MiB */
-            return Err(ExecError::UnsupportedOptions);
+            return Err(ErrorCode::UnsupportedExecOptions);
         }
 
         let phdr_sz = unsafe { ehdr.data.e32.phentsize * ehdr.data.e32.phnum };
@@ -91,19 +91,19 @@ impl ExecFmt for ExecFmtELF {
                     unsafe {core::ptr::read(chunk.as_ptr() as *const _) }
                 ).collect()
             },
-            Err(_) => return Err(ExecError::FileReadError),
+            Err(e) => return Err(e),
         };
 
         self.phdr = phdr;
 
         if !self.check_phdr() {
-            return Err(ExecError::UnsupportedOptions);
+            return Err(ErrorCode::UnsupportedExecOptions);
         }
 
         Ok(())
     }
 
-    fn load(&mut self, file: &Box<dyn File>, config: &Config) -> Result<(), ExecError> {
+    fn load(&mut self, file: &Box<dyn File>, config: &Config) -> Result<(), ErrorCode> {
         /* TODO */
         Ok(())
     }

@@ -5,7 +5,8 @@ pub mod fat;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::any::Any;
-use core::fmt::Error;
+
+use crate::errors::ErrorCode;
 
 #[allow(dead_code)]
 pub trait File {
@@ -13,7 +14,7 @@ pub trait File {
 
     fn get_attr(&self) -> u32;
 
-    fn read(&self, offset: isize, size: usize) -> Result<Vec<u8>, Error>;
+    fn read(&self, offset: isize, size: usize) -> Result<Vec<u8>, ErrorCode>;
 
     fn close(&self);
 
@@ -30,7 +31,7 @@ pub trait Filesystem {
     /// # Arguments
     /// * dir: Directory to search from
     /// * path: Path to file
-    fn find_file(&self, start_dir: Option<&dyn File>, path: &str) -> Result<Box<dyn File>, Error>;
+    fn find_file(&self, start_dir: Option<&dyn File>, path: &str) -> Result<Box<dyn File>, ErrorCode>;
 }
 
 #[repr(u32)]

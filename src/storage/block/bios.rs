@@ -4,9 +4,10 @@ extern crate alloc;
 use alloc::vec::Vec;
 use alloc::vec;
 use core::ptr::{addr_of, addr_of_mut};
-use core::fmt::{Error,Write};
+use core::fmt::Write;
 use core::usize;
 
+use crate::errors::ErrorCode;
 use crate::storage::block::BlockDevice;
 use crate::bios::{self, BiosCall};
 use crate::io::output;
@@ -20,7 +21,7 @@ pub struct BiosBlockDevice {
 }
 
 impl BiosBlockDevice {
-    pub fn new(id: u8) -> Result<BiosBlockDevice, Error> {
+    pub fn new(id: u8) -> Result<BiosBlockDevice, ErrorCode> {
         if id < 0x80 {
             /* INT 0x13, AH = 0x08 supposedly can report incorrect values for a
              * floppy disk. Assuming a standard 1.44MB disk geometry here. I'll
@@ -33,7 +34,7 @@ impl BiosBlockDevice {
             })
         } else {
             /* TODO */
-            Err(Error)
+            Err(ErrorCode::Unsupported)
         }
     }
 
@@ -47,7 +48,7 @@ impl BiosBlockDevice {
         unsafe { bcall.call(); }
     }
 
-    fn floppy_read_sector(&self, offset: isize) -> Result<Vec<u8>, Error> {
+    fn floppy_read_sector(&self, offset: isize) -> Result<Vec<u8>, ErrorCode> {
         let offset = offset / 512;
 
         let track: u16 = (offset / self.sectors_per_track as isize) as u16;
@@ -59,7 +60,7 @@ impl BiosBlockDevice {
 
         if addr_of!(data) as usize > 0xFE00 {
             println!("Data buffer too high!");
-            return Err(Error);
+            return Err(ErrorCode::OutOfBounds);
         }
 
         let mut attempts = 4;
@@ -85,7 +86,7 @@ impl BiosBlockDevice {
         }
 
         println!("Read failure");
-        Err(Error)
+        Err(ErrorCode::ReadFailure)
     }
 }
 
@@ -94,10 +95,10 @@ impl BlockDevice for BiosBlockDevice {
         self.size
     }
 
-    fn read(&self, offset: isize, size: usize) -> Result<Vec<u8>, Error> {
+    fn read(&self, offset: isize, size: usize) -> Result<Vec<u8>, ErrorCode> {
         if ((offset % 512) != 0) || ((size % 512) != 0) {
             /* Only sector-aligned reads are currently supported */
-            return Err(Error);
+            return Err(ErrorCode::OutOfBounds);
         }
 
         let mut data: Vec<u8> = vec!();
@@ -118,7 +119,7 @@ impl BlockDevice for BiosBlockDevice {
             }
         } else {
             /* TODO: HDD */
-            return Err(Error);
+            return Err(ErrorCode::Unsupported);
         }
 
         Ok(data)

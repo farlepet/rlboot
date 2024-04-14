@@ -2,18 +2,17 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 
 use crate::config::Config;
+use crate::errors::ErrorCode;
 use crate::storage::fs::File;
-
-use super::ExecError;
 
 pub mod elf;
 
 pub const EXECFMT_INITIAL_CHUNK_SZ: usize = 512;
 
 pub trait ExecFmt {
-    fn prepare(&mut self, file: &Box<dyn File>, config: &Config) -> Result<(), ExecError>;
+    fn prepare(&mut self, file: &Box<dyn File>, config: &Config) -> Result<(), ErrorCode>;
 
-    fn load(&mut self, file: &Box<dyn File>, config: &Config) -> Result<(), ExecError>;
+    fn load(&mut self, file: &Box<dyn File>, config: &Config) -> Result<(), ErrorCode>;
 
     /// Get executable's entrypoint
     fn get_entrypoint(&self) -> Option<usize>;
@@ -31,12 +30,12 @@ pub enum ExecFmtTestResult {
     Maybe
 }
 
-pub fn find_exec_fmt(chunk: &Vec<u8>) -> Result<Box<dyn ExecFmt>, ExecError> {
+pub fn find_exec_fmt(chunk: &Vec<u8>) -> Result<Box<dyn ExecFmt>, ErrorCode> {
     if elf::ExecFmtELF::test(chunk) == ExecFmtTestResult::Yes {
         return Ok(Box::new(elf::ExecFmtELF::new()));
     }
 
     /* TODO: Flat binary */
 
-    Err(ExecError::NoSuitableFormat)
+    Err(ErrorCode::UnsupportedExecFmt)
 }

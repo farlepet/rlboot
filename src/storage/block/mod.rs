@@ -2,9 +2,9 @@ pub mod bios;
 
 extern crate alloc;
 
-use core::fmt::Error;
-
 use alloc::vec::Vec;
+
+use crate::errors::ErrorCode;
 
 #[allow(dead_code)]
 pub trait BlockDevice {
@@ -15,6 +15,6 @@ pub trait BlockDevice {
     /// # Arguments
     /// * offset - Offset at which to start reading
     /// * size - How many bytes to read
-    fn read(&self, offset: isize, size: usize) -> Result<Vec<u8>, Error>;
+    fn read(&self, offset: isize, size: usize) -> Result<Vec<u8>, ErrorCode>;
 }
 

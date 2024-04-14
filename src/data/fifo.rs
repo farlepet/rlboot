@@ -4,6 +4,8 @@ use core::{
     alloc::Layout, cell::UnsafeCell, fmt::Error, mem, ptr::NonNull, sync::atomic::{AtomicUsize, Ordering},
 };
 
+use crate::errors::ErrorCode;
+
 /// FIFO buffer that can be written and read from simultaneously. Writes require
 /// a mutable reference, while reads do not.
 pub struct FIFO<T: Copy> {
@@ -29,9 +31,9 @@ impl<T: Copy> FIFO<T> {
 
     /// Add new item to the FIFO. If FIFO is full, data is dropped and an error
     /// is returned.
-    pub fn enqueue(&mut self, value: T) -> Result<(), Error> {
+    pub fn enqueue(&mut self, value: T) -> Result<(), ErrorCode> {
         if self.free() == 0 {
-            return Err(Error);
+            return Err(ErrorCode::NoSpace);
         }
 
         let tail_val = self.tail.load(Ordering::Relaxed);

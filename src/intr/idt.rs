@@ -4,6 +4,8 @@ use core::arch::asm;
 use core::fmt::Error;
 use core::{mem, ptr};
 
+use crate::errors::ErrorCode;
+
 use super::InterruptID;
 
 #[repr(C, align(8))]
@@ -29,9 +31,9 @@ pub fn init() {
     }
 }
 
-pub fn set_entry(idx: usize, entry: &IDTEntry) -> Result<(), Error> {
+pub fn set_entry(idx: usize, entry: &IDTEntry) -> Result<(), ErrorCode> {
     if idx >= (InterruptID::MAX as usize) {
-        return Err(Error);
+        return Err(ErrorCode::OutOfBounds);
     }
 
     unsafe { IDT_ARRAY.0[idx] = *entry; }

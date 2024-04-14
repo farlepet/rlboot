@@ -7,9 +7,10 @@ use alloc::vec::Vec;
 use core::any::Any;
 use core::cell::RefCell;
 use core::mem;
-use core::fmt::{Error, Write};
+use core::fmt::Write;
 use core::ptr;
 
+use crate::errors::ErrorCode;
 use crate::storage::{block::BlockDevice, fs::FileAttribute};
 use crate::io::output;
 use super::{File, Filesystem};
@@ -38,7 +39,7 @@ impl Filesystem for FATFilesystem {
         &self.rootdir
     }
 
-    fn find_file(&self, start_dir: Option<&dyn File>, path: &str) -> Result<Box<dyn File>, core::fmt::Error> {
+    fn find_file(&self, start_dir: Option<&dyn File>, path: &str) -> Result<Box<dyn File>, ErrorCode> {
         let mut dir: FATFile = if path.starts_with('/') || (start_dir.is_none()) {
             self.rootdir.clone()
         } else {
@@ -54,18 +55,20 @@ impl Filesystem for FATFilesystem {
             cpath = &path[1..];
 
             let res = self.find_file(Some(&dir), dirname);
-            if res.is_err() { return res; }
+            if let Err(e) = res {
+                return Err(e);
+            }
 
-            dir = res.unwrap().as_any().downcast_ref::<FATFile>().unwrap().clone();
+            dir = res?.as_any().downcast_ref::<FATFile>().unwrap().clone();
 
             if (dir.attr & FileAttribute::Directory as u32) == 0 {
-                return Err(Error)
+                return Err(ErrorCode::FileNotFound)
             }
         }
 
         if cpath.len() > 11 {
             /* Long filenames not yet supported */
-            return Err(Error);
+            return Err(ErrorCode::FileUnsupported);
         }
 
         let mut dent_off = dir.first_cluster;
@@ -88,23 +91,23 @@ impl Filesystem for FATFilesystem {
                 }
             }
 
-            match self.get_next_cluster(dent_off).unwrap() {
+            match self.get_next_cluster(dent_off)? {
                 Some(off) => dent_off = off,
-                None      => return Err(Error)
+                None      => return Err(ErrorCode::FileNotFound)
             }
 
         }
 
 
-        Err(Error)
+        Err(ErrorCode::FileNotFound)
     }
 
 
 }
 
 impl FATFilesystem {
-    pub fn init(blockdev: &Rc<RefCell<dyn BlockDevice>>, offset: isize) -> Rc<RefCell<Self>> {
-        let bs = blockdev.borrow().read(offset, 512).unwrap();
+    pub fn init(blockdev: &Rc<RefCell<dyn BlockDevice>>, offset: isize) -> Result<Rc<RefCell<Self>>, ErrorCode> {
+        let bs = blockdev.borrow().read(offset, 512)?;
         assert_eq!(bs.len(), 512);
         let bs: FATDataBootsector = unsafe { core::ptr::read(bs.as_ptr() as *const _) };
 
@@ -114,7 +117,7 @@ impl FATFilesystem {
         let root_first_cluster = fat_offset + (fat_size * bs.fat_copies as usize) as isize;
         let root_size          = bs.root_dir_entries as usize * mem::size_of::<FATDataDirent>();
 
-        Rc::new_cyclic(|me| {
+        Ok(Rc::new_cyclic(|me| {
             RefCell::new(FATFilesystem {
                 offset,
                 sector_size,
@@ -133,7 +136,7 @@ impl FATFilesystem {
                 block: Rc::clone(blockdev),
                 rc: me.clone(),
             })
-        })
+        }))
     }
 
     fn populate_file(&self, dirent: FATDataDirent) -> FATFile {
@@ -154,7 +157,7 @@ impl FATFilesystem {
         }
     }
 
-    fn read_fat_data(&self, off: usize, sz: usize) -> Result<u32, Error> {
+    fn read_fat_data(&self, off: usize, sz: usize) -> Result<u32, ErrorCode> {
         let read_addr = off - (off % self.sector_size);
 
         let mut cache = self.cache.borrow_mut();
@@ -180,19 +183,19 @@ impl FATFilesystem {
             2 => Ok(value & 0x0000FFFF),
             3 => Ok(value & 0x00FFFFFF),
             4 => Ok(value & 0xFFFFFFFF),
-            _ => Err(Error)
+            _ => Err(ErrorCode::Unspecified)
         }
     }
 
-    fn get_fat_entry(&self, cluster: usize) -> Result<u32, Error> {
+    fn get_fat_entry(&self, cluster: usize) -> Result<u32, ErrorCode> {
         /* TODO: Support FAT16/FAT32 */
         let offset = self.fat_offset as usize + ((cluster * 3) / 2);
 
         let mut entry = if (offset % self.cluster_size) == (self.cluster_size - 1) {
-            self.read_fat_data(offset, 1).unwrap() |
-            self.read_fat_data(offset + 1, 1).unwrap() << 8
+            self.read_fat_data(offset, 1)? |
+            self.read_fat_data(offset + 1, 1)? << 8
         } else {
-            self.read_fat_data(offset, 2).unwrap()
+            self.read_fat_data(offset, 2)?
         };
 
         if (cluster & 0x01) != 0 {
@@ -202,11 +205,11 @@ impl FATFilesystem {
         Ok(entry as u32 & 0x0FFF)
     }
 
-    fn get_next_cluster(&self, cluster: isize) -> Result<Option<isize>, Error> {
+    fn get_next_cluster(&self, cluster: isize) -> Result<Option<isize>, ErrorCode> {
         if cluster < self.data_offset {
             if cluster < self.rootdir.first_cluster {
                 println!("get_next_cluster: {:5x} is below root directory", cluster);
-                return Err(Error);
+                return Err(ErrorCode::OutOfBounds);
             }
 
             return if (cluster + self.cluster_size as isize) < self.data_offset {
@@ -219,7 +222,7 @@ impl FATFilesystem {
         }
 
         let cluster_num = ((cluster - self.data_offset) / self.cluster_size as isize) + 2;
-        let fat_entry = self.get_fat_entry(cluster_num as usize).unwrap();
+        let fat_entry = self.get_fat_entry(cluster_num as usize)?;
 
         if (fat_entry >= 0x002) && (fat_entry <= 0xff0) {
             Ok(Some(self.data_offset + ((fat_entry as isize - 2) * self.cluster_size as isize)))
@@ -283,10 +286,10 @@ impl File for FATFile {
         self.attr
     }
 
-    fn read(&self, mut offset: isize, size: usize) -> Result<Vec<u8>, Error> {
+    fn read(&self, mut offset: isize, size: usize) -> Result<Vec<u8>, ErrorCode> {
         if !((self.attr & FileAttribute::Directory as u32) != 0) && (offset as usize + size) > self.size {
             println!("FATFile: Attempt to read past end of file");
-            return Err(Error);
+            return Err(ErrorCode::OutOfBounds);
         }
 
         let fs = self.fs.upgrade().expect("Could not upgrade FATFile::fs");
@@ -299,7 +302,7 @@ impl File for FATFile {
         while offset as usize > cluster_size {
             clust = match fs.borrow().get_next_cluster(clust) {
                 Ok(Some(cluster)) => cluster,
-                Ok(None)          => return Err(Error),
+                Ok(None)          => return Err(ErrorCode::Unspecified),
                 Err(err)          => return Err(err)
             };
             offset -= cluster_size as isize;
@@ -321,7 +324,7 @@ impl File for FATFile {
 
                 clust = match fs.borrow().get_next_cluster(clust) {
                     Ok(Some(cluster)) => cluster,
-                    Ok(None)          => return Err(Error),
+                    Ok(None)          => return Err(ErrorCode::Unspecified),
                     Err(err)          => return Err(err)
                 };
             }
