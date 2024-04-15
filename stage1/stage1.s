@@ -2,7 +2,7 @@
 
 /* Source for boot sector. Must fit within 512 bytes. */
 
-stack_top = 0x4000     /* Top of temporary stack */
+stack_top = 0x1000     /* Top of temporary stack (~2 KiB) */
 
 IS_FLOPPY = 1
 
@@ -32,10 +32,6 @@ fat.hidden_sectors:      .skip 2 /* 0x1c */
 
 .global start
 start:
-    /* Enforce that we are using 0x0000:0xXXXX addressing */
-    ljmp $0, $.seg0
-
-  .seg0:
     cli
     /* Setup segment registers */
     xorw %ax, %ax
@@ -44,6 +40,20 @@ start:
     movw %ax, %fs
     movw %ax, %gs
 
+    /* Relocate to 0x1000 */
+    movw $0x7c00, %si
+    movw $0x1000, %di
+    movw $512, %cx
+1:
+    lodsb
+    stosb
+    dec %cx
+    jnz 1b
+
+
+    /* Jump to the relocated code, and set CS to 0 */
+    ljmp $0, $1f
+1:
     /* Setup stack */
     movw $stack_top, %sp
     movw %sp,        %bp
@@ -129,7 +139,7 @@ sector_read_success_message:
 
 /* Bootloader-specific header data. Data here will eventually be populated by the build tool. */
 bootldr.stage2_map_sector:   .word 0x0000 /* Sector containing stage 2 sector map, 0 indexed */
-bootldr.stage2_addr:         .word 0x7e00 /* Address to which to load stage 2 loader */
+bootldr.stage2_addr:         .word 0x1200 /* Address to which to load stage 2 loader */
 
 /* Boot sector magic number */
 .word 0xAA55

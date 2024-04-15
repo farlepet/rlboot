@@ -7,7 +7,7 @@ STAGE2      = $(S2_BUILDDIR)/stage2.bin
 CARGO ?= cargo
 CARGO_TARGET = i386-unknown-none
 CARGO_FLAGS  = -Z build-std="core,alloc" --target=$(CARGO_TARGET).json
-RUSTFLAGS    =
+RUSTFLAGS    = --emit asm
 
 ifeq ($(DEBUG), 1)
 CARGO_FLAGS      += --features=verbose_panic
@@ -31,8 +31,6 @@ S2_CFLAGS  = -fno-pic -I $(S2_INCDIR) \
 			 -nostdlib -nostdinc -ffreestanding -Wall -Wextra -Werror -Os \
 			 -g -fno-stack-protector -fdata-sections -ffunction-sections \
 			 -Wl,--gc-sections
-			 -include "inc/config.h"
-S2_ASFLAGS = $(S2_CFLAGS)
 
 ifeq ($(CC), clang)
 	S2_CFLAGS += -Wno-unused-command-line-argument \
@@ -40,6 +38,8 @@ ifeq ($(CC), clang)
 else
 	S2_CFLAGS += -m32 -march=i386
 endif
+
+S2_ASFLAGS = $(S2_CFLAGS)
 
 # TODO: Allow file selection based on features, possible via cmake
 S2_SRCS = $(S2_SRCDIR)/startup/startup.s           \
@@ -54,7 +54,7 @@ S2_RUST_OBJ = target/$(CARGO_TARGET)/$(CARGO_RELEASE_DIR)/librlboot.a
 
 $(STAGE2): $(S2_OBJS) $(S2_RUST_OBJ)
 	@echo -e "\033[32m    \033[1mLD\033[21m    \033[34m$@\033[0m"
-	$(Q) $(LD) -Ttext=0x7e00 $(S2_LDFLAGS) -r -o $(STAGE2).o $(S2_OBJS) $(S2_RUST_OBJ)
+	$(Q) $(LD) -Ttext=0x1200 $(S2_LDFLAGS) -r -o $(STAGE2).o $(S2_OBJS) $(S2_RUST_OBJ)
 	$(Q) $(CC) $(S2_CFLAGS) -o $(STAGE2).elf $(STAGE2).o -T stage2.ld -nostdlib -lgcc
 	$(Q) $(OBJCOPY) -O binary --only-section=.text --only-section=.rodata --only-section=.data $(STAGE2).elf $@
 

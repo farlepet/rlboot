@@ -1,5 +1,5 @@
 
-map_temp_addr = 0x1000                /* Where to load temporary sector map chunks */
+map_temp_addr = 0x500                /* Where to load temporary sector map chunks */
 map_next_addr = map_temp_addr + 0x1fc /* Location of pointer to next sector - if we get here, we may need to read again. */
 
 /* Reads through entire sector map chain */

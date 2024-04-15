@@ -1,7 +1,7 @@
 ENTRY(start)
 
 SECTIONS {
-    . = 0x7e00;
+    . = 0x1200;
 
     __lboot_begin = .;
 
