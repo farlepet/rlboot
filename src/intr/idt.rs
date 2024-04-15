@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 
 use core::arch::asm;
-use core::fmt::Error;
 use core::{mem, ptr};
 
 use crate::errors::ErrorCode;
@@ -42,7 +41,7 @@ pub fn set_entry(idx: usize, entry: &IDTEntry) -> Result<(), ErrorCode> {
 }
 
 /// IDT entry structure
-#[repr(C, packed(1))]
+#[repr(C, packed(2))]
 #[derive(Clone, Copy)]
 pub struct IDTEntry {
     offset_low: u16,  //< Lower 16-bits of offset
@@ -66,7 +65,7 @@ impl IDTEntry {
 }
 
 /// IDT Register (IDTR) structure
-#[repr(C, packed(1))]
+#[repr(C, packed(2))]
 struct IDTRStruct {
     limit: u16,
     base: u32,

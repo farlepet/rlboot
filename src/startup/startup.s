@@ -53,11 +53,9 @@ start:
     movw %ax,   %gs
 
     /* 10. Setup IDT */
-    lidt (idtr)
-
     /* 11. Re-enable interrupts and NMI */
-    /* @todo Properly setup IDT, then we can re-enable interrupts */
-    /* sti */
+    // These are handled by the Rust code
+
     /* Enable NMI */
     /*inb  $0x70, %al
     andb $0x7F, %al
@@ -112,10 +110,6 @@ gdtr:
     .word ((gdt_end - gdt) - 1)  /* Limit */
     .long gdt                    /* Base */
 
-idtr:
-    .word ((idt_end - idt) - 1) /* Limit */
-    .long idt                   /* Base */
-
 .align 8
 /* @note Flat memory model with no protection */
 gdt:
@@ -138,11 +132,6 @@ gdt:
     .word tss /* @note Since we are in the lower 16-bits of memory, we can just use the address here */
     .long 0x00408900
 gdt_end:
-
-idt:
-    /* @todo */
-    .quad 0
-idt_end:
 
 /* @note Within the bootloader, we will never be in any ring other than 0 */
 tss:

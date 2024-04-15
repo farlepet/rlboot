@@ -51,10 +51,9 @@ pub extern "C" fn ruststart(boot_drive: u32) -> ! {
     println!("RLBoot v{} -- (c) 2024 Peter Farley\n", env!("CARGO_PKG_VERSION"));
 
     println!("Heap size: {} KiB", HEAP.lock().size() / 1024);
-    /* Currently, enabling interrupts breaks BIOS calls */
-    //intr::init();
-    //println!("Interrupts enabled");
 
+    intr::init();
+    println!("Interrupts enabled");
 
     let blk = match BiosBlockDevice::new(boot_drive as u8) {
         Ok(bbd) => Rc::new(RefCell::new(bbd)) as Rc<RefCell<dyn BlockDevice>>,
@@ -63,6 +62,7 @@ pub extern "C" fn ruststart(boot_drive: u32) -> ! {
             loop {}
         },
     };
+    println!("Block device created");
     let fs = match FATFilesystem::init(&blk, 0) {
         Ok(fs) => fs,
         Err(e) => {
@@ -70,6 +70,8 @@ pub extern "C" fn ruststart(boot_drive: u32) -> ! {
             loop {}
         }
     };
+    println!("Filesystem created");
+
     let cfg_file = match fs.borrow().find_file(None, "RLBOOT/RLBOOT.CFG") {
         Ok(file) => file,
         Err(e) => {
@@ -77,6 +79,7 @@ pub extern "C" fn ruststart(boot_drive: u32) -> ! {
             loop {}
         }
     };
+    println!("Config file opened");
 
     let config = match Config::load(&cfg_file) {
         Ok(cfg) => cfg,
@@ -105,13 +108,13 @@ pub extern "C" fn ruststart(boot_drive: u32) -> ! {
         }
     };
 
-    if exec.prepare(&config).is_err() {
-        println!("Could not prepare kernel");
+    if let Err(e) = exec.prepare(&config) {
+        println!("Could not prepare kernel: {}", e);
         loop {}
     }
 
-    if exec.load(&config).is_err() {
-        println!("Could not prepare kernel");
+    if let Err(e) = exec.load(&config) {
+        println!("Could not load kernel: {}", e);
         loop {}
     }
 
@@ -124,8 +127,6 @@ pub extern "C" fn ruststart(boot_drive: u32) -> ! {
     });
 
     let _ = write!(port, "This is a test!\n");*/
-
-    println!("This is a new line");
 
     loop {}
 }

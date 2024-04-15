@@ -12,7 +12,10 @@ use crate::bios::EFLAGS_IF;
 use crate::io::output;
 use crate::errors::ErrorCode;
 
-use self::{idt::{IDTEntry, IDT_FLAGS_INTR_32}, pic::{PIC_OFFSET_MASTER, PIC_OFFSET_SLAVE}};
+use self::{
+    idt::{IDTEntry, IDT_FLAGS_INTR_32, IDT_FLAGS_TRAP_32},
+    pic::{PIC_OFFSET_MASTER, PIC_OFFSET_SLAVE}
+};
 
 
 #[inline(always)]
@@ -69,12 +72,6 @@ pub fn init() {
     idt::init();
     pic::remap();
 
-    /* Mask all interrupts by default */
-    for i in 0..16 {
-        pic::mask(i);
-    }
-
-
     interrupts_enable();
 }
 
@@ -105,7 +102,7 @@ extern "C" fn interrupt_wrapper(int_id: u32, pusha: PUSHARegs, errcode: u32, ire
         None => {
             if int_id < 32 {
                 exception_handler(int_id, errcode, &pusha, &iret);
-            } else {
+            } else if int_id != 32 {
                 println!("Unhandled interrupt: {}", int_id);
             }
         }
@@ -150,7 +147,9 @@ fn exception_handler(int_id: u8, errcode: u32, pusha: &PUSHARegs, iret: &IRETReg
 }
 
 fn idt_set_wrapper(idx: usize, wrapper: usize) {
-    let entry = IDTEntry::new(wrapper, 0x0008, IDT_FLAGS_INTR_32);
+    /* Exceptions are traps, all others interrupts */
+    let flags = if idx < 32 { IDT_FLAGS_TRAP_32 } else { IDT_FLAGS_INTR_32 };
+    let entry = IDTEntry::new(wrapper, 0x0008, flags);
     let _ = idt::set_entry(idx, &entry);
 }
 
