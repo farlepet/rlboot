@@ -117,28 +117,25 @@ extern "C" fn interrupt_wrapper(int_id: u32, pusha: PUSHARegs, errcode: u32, ire
 }
 
 fn exception_handler(int_id: u8, errcode: u32, pusha: &PUSHARegs, iret: &IRETRegs) {
-    println!("exception_handler({}, {:x})", int_id, errcode);
+    println!("\nEXCEPTION (id: {}, errcode: {:x})", int_id, errcode);
 
     {
         let eip    = iret.eip;
-        let esp    = iret.esp;
-        println!("eip: {:08x} esp: {:08x}", eip, esp);
-        let cs     = iret.cs;
-        let ds     = iret.ds;
         let eflags = iret.eflags;
-        println!("cs: {:x} ds: {:x} eflags: {:x}", cs, ds, eflags);
+        let cs     = iret.cs;
+        println!("  eip: {:02x}:{:04x} eflags: {:x}", cs, eip, eflags);
     }
     {
         let eax = pusha.eax;
         let ebx = pusha.ebx;
         let ecx = pusha.ecx;
         let edx = pusha.edx;
-        println!("eax: {:08x} ebx: {:08x} ecx: {:08x} edx: {:08x}", eax, ebx, ecx, edx);
+        println!("  eax: {:08x} ebx: {:08x} ecx: {:08x} edx: {:08x}", eax, ebx, ecx, edx);
         let edi = pusha.edi;
         let esi = pusha.esi;
         let ebp = pusha.ebp;
         let esp = pusha.esp;
-        println!("edi: {:08x} esi: {:08x} ebp: {:08x} esp: {:08x}", edi, esi, ebp, esp);
+        println!("  edi: {:08x} esi: {:08x} ebp: {:08x} esp: {:08x}", edi, esi, ebp, esp);
     }
 
     /* This isn't working currently */
@@ -330,7 +327,6 @@ struct IRETRegs {
     eip: u32,
     cs : u32,
     eflags: u32,
-    esp: u32,
-    ds: u32,
+    /* NOTE: No ESP or SS, as we are always in Ring 0 */
 }
 
