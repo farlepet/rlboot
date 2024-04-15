@@ -34,9 +34,25 @@ use crate::storage::block::BlockDevice;
 use crate::storage::fs::fat::FATFilesystem;
 use crate::storage::fs::Filesystem;
 
-extern "C" { static mut __lboot_end: u8; }
+extern "C" {
+    static mut __lboot_end: u8;
+    static mut __lboot_bss_begin: u8;
+    static mut __lboot_bss_end: u8;
+}
+
+fn init_data() {
+    unsafe {
+        /* Clear BSS */
+        let bss = addr_of!(__lboot_bss_begin) as *mut u8;
+        let bss_size = addr_of!(__lboot_bss_end) as usize - addr_of!(__lboot_bss_begin) as usize;
+        bss.write_bytes(0x00, bss_size);
+    }
+}
+
 #[no_mangle]
 pub extern "C" fn ruststart(boot_drive: u32) -> ! {
+    init_data();
+
     unsafe {
         /* Assuming fully populated conventional memory. Could also use INT 12.
          * Realistically, it's unlikely this will ever be used on a system with
