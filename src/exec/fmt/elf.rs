@@ -75,10 +75,10 @@ impl ExecFmtELF {
                         println!("  Loading {} bytes from file at {:x} into {:x}",
                                  phdr.filesz, phdr.offset, phdr.paddr);
                         for off in (0..phdr.filesz).step_by(BLOCK_READ_SZ) {
-                            let read_sz = if (off - phdr.filesz) as usize > BLOCK_READ_SZ {
+                            let read_sz = if (phdr.filesz - off) as usize > BLOCK_READ_SZ {
                                 BLOCK_READ_SZ
                             } else {
-                                (off - phdr.filesz) as usize
+                                (phdr.filesz - off) as usize
                             };
 
                             match file.read((phdr.offset + off) as isize, read_sz) {
