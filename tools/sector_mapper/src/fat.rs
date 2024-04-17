@@ -1,10 +1,13 @@
 use core::slice;
-use std::fmt::Error;
-use std::io::Read;
-use std::mem::{self, MaybeUninit};
-use std::fs::File;
-use std::os::unix::fs::FileExt;
-use std::path::Path;
+
+use std::{
+    error::Error,
+    io::Read,
+    mem::{self, MaybeUninit},
+    fs::File,
+    os::unix::fs::FileExt,
+    path::Path
+};
 
 pub struct FAT {
     file: File, //< Floppy disk, or file containing floppy image
@@ -20,9 +23,9 @@ pub struct FAT {
 }
 
 impl FAT {
-    pub fn open(path: &Path, wr: bool) -> Result<Self, Error> {
+    pub fn open(path: &Path, wr: bool) -> Result<Self, Box<dyn Error>> {
         let mut fatfs = FAT {
-            file: File::options().write(wr).read(true).open(path).unwrap(),
+            file: File::options().write(wr).read(true).open(path)?,
 
             cluster_size: 0,
             fat_offset:   0,
@@ -42,15 +45,13 @@ impl FAT {
             let mut bs_slice = slice::from_raw_parts_mut(&mut fatfs.bootsector as *mut FatDataBootsector as *mut u8,
                                                          mem::size_of::<FatDataBootsector>());
             if fatfs.file.read_exact(&mut bs_slice).is_err() {
-                eprintln!("Could not read bootsector");
-                return Err(Error);
+                return Err("Could not read bootsector".into());
             }
         }
 
         if fatfs.bootsector.signature != 0xAA55 {
             let signature = fatfs.bootsector.signature;
-            eprintln!("Incorrect signature: {:4x}", signature);
-            return Err(Error);
+            return Err(format!("Incorrect signatore: {:4x}", signature).into());
         }
 
         fatfs.cluster_size = fatfs.bootsector.sectors_per_cluster as usize * fatfs.bootsector.bytes_per_sector as usize;
@@ -73,17 +74,16 @@ impl FAT {
         self.bootsector.sectors_per_cluster as usize
     }
 
-    pub fn write_u16(&self, off: usize, value: u16) -> Result<(), Error> {
+    pub fn write_u16(&self, off: usize, value: u16) -> Result<(), Box<dyn Error>> {
         let buf = u16::to_le_bytes(value);
-        if self.file.write_at(&buf, off as u64).unwrap() < 2 {
-            eprintln!("Could not write sector map cluster number");
-            return Err(Error);
+        if self.file.write_at(&buf, off as u64)? < 2 {
+            return Err("Could not write sector map cluster number".into());
         }
 
         Ok(())
     }
 
-    pub fn find_file(&self, start_dir: Option<&FATFile>, path: &str) -> Result<FATFile, Error> {
+    pub fn find_file(&self, start_dir: Option<&FATFile>, path: &str) -> Result<FATFile, Box<dyn Error>> {
         let mut dir = if path.starts_with('/') || (start_dir.is_none()) {
             self.rootdir
         } else {
@@ -102,21 +102,21 @@ impl FAT {
             }
 
             if (dir.attr & FatDirentAttr::Directory as u8) == 0 {
-                return Err(Error)
+                return Err("Path contains file that is not a directory".into());
             }
         }
 
         if cpath.len() > 11 {
             /* Long filenames not yet supported */
-            return Err(Error);
+            return Err("Long filenames not supported".into());
         }
 
         let mut dent_off = dir.first_cluster;
 
         while dent_off > 0 {
             let mut buf = vec![0_u8; self.cluster_size];
-            if self.file.read_at(&mut buf, dent_off as u64).unwrap() < self.cluster_size {
-                return Err(Error);
+            if self.file.read_at(&mut buf, dent_off as u64)? < self.cluster_size {
+                return Err(format!("Could not read cluster at {:04x}", dent_off).into());
             }
 
             for i in 0..(self.cluster_size / mem::size_of::<FatDataDirent>()) {
@@ -135,28 +135,28 @@ impl FAT {
                 }
             }
 
-            match self.get_next_cluster(dent_off).unwrap() {
+            match self.get_next_cluster(dent_off)? {
                 Some(off) => dent_off = off,
-                None      => return Err(Error)
+                None      => return Err("File not found".into()),
             }
         }
 
-        Err(Error)
+        Err("File not found".into())
     }
 
-    pub fn get_file_clusters(&self, file: &FATFile) -> Result<Vec<u32>, Error> {
+    pub fn get_file_clusters(&self, file: &FATFile) -> Result<Vec<u32>, Box<dyn Error>> {
         let mut clust = file.first_cluster;
         let mut pos = 0;
         let mut clusters: Vec<u32> = vec!();
 
         while pos < file.size {
             if clust == 0 {
-                return Err(Error);
+                return Err("Unexpected end of cluster chain before end of file".into());
             }
 
             clusters.push(clust as u32);
             pos += self.cluster_size;
-            match self.get_next_cluster(clust).unwrap() {
+            match self.get_next_cluster(clust)? {
                 Some(cl) => clust = cl,
                 None     => clust = 0
             }
@@ -165,14 +165,13 @@ impl FAT {
         Ok(clusters)
     }
 
-    fn get_fat_entry(&self, cluster: isize) -> Result<u32, Error> {
+    fn get_fat_entry(&self, cluster: isize) -> Result<u32, Box<dyn Error>> {
         /* TODO: Support FAT16/FAT32 */
         let offset = self.fat_offset + ((cluster * 3) / 2);
 
         let mut buf = [0_u8; 2];
-        if self.file.read_at(&mut buf, offset as u64).unwrap() < 2 {
-            eprintln!("Could not read FAT entry for cluster {}", cluster);
-            return Err(Error);
+        if self.file.read_at(&mut buf, offset as u64)? < 2 {
+            return Err(format!("Could not read FAT entry for cluster {}", cluster).into());
         }
         let mut entry = u16::from_le_bytes(buf);
         if (cluster & 0x01) != 0 {
@@ -182,11 +181,10 @@ impl FAT {
         Ok(entry as u32 & 0x0FFF)
     }
 
-    fn get_next_cluster(&self, cluster: isize) -> Result<Option<isize>, Error> {
+    fn get_next_cluster(&self, cluster: isize) -> Result<Option<isize>, Box<dyn Error>> {
         if cluster < self.data_offset {
             if cluster < self.rootdir.first_cluster {
-                eprintln!("get_next_cluster: {:5x} is below root directory", cluster);
-                return Err(Error);
+                return Err(format!("get_next_cluster: {:5x} is below root directory", cluster).into());
             }
 
             if (cluster + self.cluster_size as isize) < self.data_offset {
@@ -199,7 +197,7 @@ impl FAT {
         }
 
         let cluster_num = ((cluster - self.data_offset) / self.cluster_size as isize) + 2;
-        let fat_entry = self.get_fat_entry(cluster_num).unwrap();
+        let fat_entry = self.get_fat_entry(cluster_num)?;
 
         if (fat_entry >= 0x002) && (fat_entry <= 0xff0) {
             Ok(Some(self.data_offset + ((fat_entry as isize - 2) * self.cluster_size as isize)))

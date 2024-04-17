@@ -1,31 +1,33 @@
 pub mod fat;
 use core::slice;
-use std::fmt::Error;
-
-use std::fs::File;
-use std::io::Write;
-use std::{mem, path::Path, env};
-use std::mem::MaybeUninit;
+use std::{
+    error::Error,
+    fs::File,
+    io::Write,
+    mem::{self, MaybeUninit},
+    path::Path,
+    env
+};
 
 use fat::{FAT, FatDataBootsector};
 
-fn main() -> Result<(), Error> {
+fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
     if args.len() < 4 {
         usage();
-        return Err(Error);
+        return Err("Not enough arguments".into());
     }
-    let stage: u8 = args[1].parse().unwrap();
+    let stage: u8 = args[1].parse()?;
     if (stage < 1) || (stage > 2) {
         usage();
-        return Err(Error);
+        return Err("Invalid stage".into());
     }
 
-    let fatfs = FAT::open(Path::new(&args[2]), stage == 2).unwrap();
+    let fatfs = FAT::open(Path::new(&args[2]), stage == 2)?;
     match stage {
         1 => stage1(&fatfs, &args),
         2 => stage2(&fatfs, &args),
-        _ => Err(Error)
+        _ => Err("Invalid stage - broken check logic".into())
     }
 }
 
@@ -35,16 +37,16 @@ fn usage() {
     eprintln!("  sector_mapper 2 <floppy image> <map file>");
 }
 
-fn stage1(fs: &FAT, args: &Vec<String>) -> Result<(), Error> {
+fn stage1(fs: &FAT, args: &Vec<String>) -> Result<(), Box<dyn Error>> {
     if args.len() != 5 {
         usage();
-        return Err(Error);
+        return Err("stage1: Incorrect number of arguments".into());
     }
 
-    let mut map_file = File::create(Path::new(&args[4])).unwrap();
-    let s2file = fs.find_file(None, &args[3]).unwrap();
+    let mut map_file = File::create(Path::new(&args[4]))?;
+    let s2file = fs.find_file(None, &args[3])?;
 
-    let clusters = fs.get_file_clusters(&s2file).unwrap();
+    let clusters = fs.get_file_clusters(&s2file)?;
 
     let mut chunks: Vec<SectorMapChunk> = vec!();
     let mut chunk = SectorMapChunk::default();
@@ -77,27 +79,29 @@ fn stage1(fs: &FAT, args: &Vec<String>) -> Result<(), Error> {
 
     let data = unsafe { slice::from_raw_parts(ptr, len) };
 
-    if map_file.write(data).is_err() {
-        Err(Error)
+    if let Err(e) = map_file.write(data) {
+        Err(Box::new(e))
     } else {
         Ok(())
     }
 }
 
-fn stage2(fs: &FAT, args: &Vec<String>) -> Result<(), Error> {
+fn stage2(fs: &FAT, args: &Vec<String>) -> Result<(), Box<dyn Error>> {
     if args.len() != 4 {
         usage();
-        return Err(Error);
+        return Err("stage2: Incorect number of arguments".into());
     }
 
-    let mapfile = fs.find_file(None, &args[3]).unwrap();
+    let mapfile = fs.find_file(None, &args[3])?;
 
-    let clusters = fs.get_file_clusters(&mapfile).unwrap();
+    let clusters = fs.get_file_clusters(&mapfile)?;
 
     let mut off = mem::offset_of!(FatDataBootsector, stage2_map_sector);
     for clust in clusters {
         let real_clust = ((clust as usize / fs.get_cluster_size()) * fs.get_sectors_per_cluster()) as u16;
-        if fs.write_u16(off, real_clust).is_err() { return Err(Error); }
+        if let Err(e) = fs.write_u16(off, real_clust) {
+            return Err(e);
+        }
         off = clust as usize + mem::offset_of!(SectorMapChunk, next_chunk);
     }
 
