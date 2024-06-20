@@ -73,10 +73,10 @@ const PIC_BIOS_OFFSET_SLAVE:  u8 = 0x70;
 const PIC1_BASE: u16 = 0x20;
 const PIC2_BASE: u16 = 0xa0;
 
-const PIC1_COMMAND: u16 = PIC1_BASE + 0;
+const PIC1_COMMAND: u16 = PIC1_BASE;
 const PIC1_DATA: u16    = PIC1_BASE + 1;
 
-const PIC2_COMMAND: u16 = PIC2_BASE + 0;
+const PIC2_COMMAND: u16 = PIC2_BASE;
 const PIC2_DATA: u16    = PIC2_BASE + 1;
 
 const PIC_ICW1_IC4:  u8 = 1 << 0; //< ICW4 needed

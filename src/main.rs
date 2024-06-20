@@ -96,7 +96,7 @@ pub extern "C" fn ruststart(boot_drive: u32) -> ! {
     };
     println!("Config file opened");
 
-    let config = match Config::load(&cfg_file) {
+    let config = match Config::load(cfg_file.as_ref()) {
         Ok(cfg) => cfg,
         Err(e) => {
             println!("Error loading config: {}", e);

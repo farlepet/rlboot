@@ -36,27 +36,24 @@ pub fn interrupts_enabled() -> bool {
             out("eax") eflags
         );
     };
-    return (eflags & EFLAGS_IF) != 0;
+
+    (eflags & EFLAGS_IF) != 0
 }
 
 pub fn interrupt_enable(id: InterruptID) {
     let id: u8 = id as u8;
-    if (id >= PIC_OFFSET_MASTER) &&
-       (id < (PIC_OFFSET_MASTER + 8)) {
+    if (PIC_OFFSET_MASTER..(PIC_OFFSET_MASTER + 8)).contains(&id) {
         pic::unmask(id - PIC_OFFSET_MASTER);
-    } else if (id >= PIC_OFFSET_SLAVE) &&
-              (id < (PIC_OFFSET_SLAVE + 8)) {
+    } else if (PIC_OFFSET_SLAVE..(PIC_OFFSET_SLAVE + 8)).contains(&id) {
         pic::unmask(id - PIC_OFFSET_SLAVE + 8);
     }
 }
 
 pub fn interrupt_disable(id: InterruptID) {
     let id: u8 = id as u8;
-    if (id >= PIC_OFFSET_MASTER) &&
-       (id < (PIC_OFFSET_MASTER + 8)) {
+    if (PIC_OFFSET_MASTER..(PIC_OFFSET_MASTER + 8)).contains(&id) {
         pic::mask(id - PIC_OFFSET_MASTER);
-    } else if (id >= PIC_OFFSET_SLAVE) &&
-              (id < (PIC_OFFSET_SLAVE + 8)) {
+    } else if (PIC_OFFSET_SLAVE..(PIC_OFFSET_SLAVE + 8)).contains(&id) {
         pic::mask(id - PIC_OFFSET_SLAVE + 8);
     }
 }
@@ -106,10 +103,9 @@ extern "C" fn interrupt_wrapper(int_id: u32, pusha: PUSHARegs, errcode: u32, ire
         }
     }
 
-    let int_id = int_id as u8;
-    if (int_id >= PIC_OFFSET_MASTER) && (int_id <= (PIC_OFFSET_MASTER + 8)) {
+    if (PIC_OFFSET_MASTER..(PIC_OFFSET_MASTER + 8)).contains(&int_id) {
         pic::eoi(int_id - PIC_OFFSET_MASTER);
-    } else if (int_id >= PIC_OFFSET_SLAVE) && (int_id <= (PIC_OFFSET_SLAVE + 8)) {
+    } else if (PIC_OFFSET_SLAVE..(PIC_OFFSET_SLAVE + 8)).contains(&int_id) {
         pic::eoi((int_id - PIC_OFFSET_SLAVE) + 8);
     }
 }

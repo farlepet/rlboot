@@ -1,5 +1,4 @@
 use alloc::{
-    boxed::Box,
     string::{String, ToString},
     vec::Vec,
 };
@@ -38,7 +37,7 @@ impl core::fmt::Display for Config {
 }
 
 impl Config {
-    pub fn load(file: &Box<dyn File>) -> Result<Config, ErrorCode> {
+    pub fn load(file: &dyn File) -> Result<Config, ErrorCode> {
         let data = match file.read(0, file.get_size()) {
             Ok(data) => data,
             Err(e) => return Err(e)
@@ -54,33 +53,30 @@ impl Config {
         for line in cstr.lines() {
             let tline = line.trim();
 
-            match tline.find("=") {
-                Some(idx) => {
-                    let (key, val) = tline.split_at(idx);
-                    let key = key.trim();
-                    let val = val[1..].trim();
+            if let Some(idx) = tline.find("=") {
+                let (key, val) = tline.split_at(idx);
+                let key = key.trim();
+                let val = val[1..].trim();
 
-                    match key {
-                        "CFGVER" => {
-                            match str::parse(val) {
-                                Ok(parsed) => conf.version = parsed,
-                                Err(_) => { /* TODO */ }
-                            }
-                        },
-                        "KERNEL" => conf.kernel_path = val.to_string(),
-                        "CMDLINE" => conf.kernel_cmdline = val.to_string(),
-                        "MODULE" => {
-                            match Self::parse_module(&val) {
-                                Some(md) => conf.modules.push(md),
-                                None => { /* TODO */ }
-                            }
-                        },
-                        _ => {
-                            /* TODO: Error */
+                match key {
+                    "CFGVER" => {
+                        match str::parse(val) {
+                            Ok(parsed) => conf.version = parsed,
+                            Err(_) => { /* TODO */ }
                         }
+                    },
+                    "KERNEL" => conf.kernel_path = val.to_string(),
+                    "CMDLINE" => conf.kernel_cmdline = val.to_string(),
+                    "MODULE" => {
+                        match Self::parse_module(val) {
+                            Some(md) => conf.modules.push(md),
+                            None => { /* TODO */ }
+                        }
+                    },
+                    _ => {
+                        /* TODO: Error */
                     }
-                },
-                None => {}
+                }
             }
         }
 

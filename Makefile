@@ -80,9 +80,10 @@ emu-sock-dbg: $(FLOPPY)
 	                      -chardev socket,id=serial0,path=./com1.sock,server=on \
 	                      -serial chardev:serial0
 
+check: stage2_check
 
 clean: stage1_clean stage2_clean
 	$(Q) rm -f $(STAGE1) $(FLOPPY)
 	$(Q) cargo clean --release --manifest-path=$(SECTOR_MAPPER)
 
-.PHONY: clean emu emu-dbg $(SECTOR_MAPPER)
+.PHONY: clean check emu emu-dbg $(SECTOR_MAPPER)

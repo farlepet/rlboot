@@ -24,11 +24,11 @@ impl ExecFile {
     }
 
     pub fn prepare(&mut self, config: &Config) -> Result<(), ErrorCode> {
-        self.fmt.prepare(&self.file, config)
+        self.fmt.prepare(self.file.as_ref(), config)
     }
 
     pub fn load(&mut self, config: &Config) -> Result<(), ErrorCode> {
-        self.fmt.load(&self.file, config)
+        self.fmt.load(self.file.as_ref(), config)
     }
 }
 

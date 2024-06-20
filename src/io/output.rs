@@ -1,14 +1,14 @@
 extern crate alloc;
 
-use alloc::vec::Vec;
-use alloc::{slice, vec};
 use core::fmt::Write;
 use core::mem;
+
+use alloc::slice;
 
 use crate::io::vga;
 
 pub trait IOOutput {
-    fn write(self: &mut Self, data: &Vec<u8>);
+    fn write(&mut self, data: &[u8]);
 }
 
 pub static mut OUTPUT_VGA: vga::VGA = vga::VGA::new();
@@ -23,19 +23,19 @@ pub fn init() {
 pub fn puts(line: &str) {
     /* TODO: Support selecting output */
     unsafe {
-        OUTPUT_VGA.write(&line.as_bytes().to_vec());
+        OUTPUT_VGA.write(line.as_bytes());
     }
 }
 
 pub fn putchar(ch: u8) {
     /* TODO: Support selecting output */
     unsafe {
-        OUTPUT_VGA.write(&vec![ch]);
+        OUTPUT_VGA.write(&[ch]);
     }
 }
 
 #[allow(dead_code)]
-pub fn hexdump(data: &Vec<u8>, off: usize, mut len: usize) {
+pub fn hexdump(data: &[u8], off: usize, mut len: usize) {
     if off >= data.len() {
         return;
     }
@@ -104,7 +104,7 @@ macro_rules! println {
         unsafe { _ = write!(output::OUTPUT_VGA, concat!($fmt, "\n")) }
     );
     ($fmt:expr, $($arg:tt)*) => (
-        unsafe { _ = write!(output::OUTPUT_VGA, concat!($fmt, "\n"), $($arg)*) }
+        unsafe { _ =  write!(output::OUTPUT_VGA, concat!($fmt, "\n"), $($arg)*) }
     );
 }
 

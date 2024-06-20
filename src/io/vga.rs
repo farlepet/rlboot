@@ -87,7 +87,7 @@ impl VGA {
 }
 
 impl crate::io::output::IOOutput for VGA {
-    fn write(self: &mut Self, data: &alloc::vec::Vec<u8>) {
+    fn write(&mut self, data: &[u8]) {
         for ch in data {
             self.put_char(*ch);
         }

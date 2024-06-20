@@ -62,6 +62,9 @@ $(S2_RUST_OBJ):
 	$(Q) $(CARGO) build $(CARGO_RELEASE) $(CARGO_FLAGS)
 
 
+stage2_check:
+	$(Q) $(CARGO) clippy $(CARGO_RELEASE) $(CARGO_FLAGS)
+
 
 $(S2_BUILDDIR)/%.o: $(S2_SRCDIR)/%.s
 	@echo -e "\033[32m    \033[1mAS\033[21m    \033[34m$<\033[0m"
@@ -73,7 +76,7 @@ stage2_clean:
 	$(Q) rm -f $(STAGE2) $(STAGE2).elf $(S2_OBJS) $(S2_DEPS)
 	$(Q) $(CARGO) clean --release
 
-.PHONY: stage2_clean $(S2_RUST_OBJ)
+.PHONY: stage2_clean stage2_check $(S2_RUST_OBJ)
 
 -include $(S2_DEPS)
 

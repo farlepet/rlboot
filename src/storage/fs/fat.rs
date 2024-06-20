@@ -40,7 +40,7 @@ impl Filesystem for FATFilesystem {
     }
 
     fn find_file(&self, start_dir: Option<&dyn File>, path: &str) -> Result<Box<dyn File>, ErrorCode> {
-        let mut dir: FATFile = if path.starts_with('/') || (start_dir.is_none()) {
+        let mut dir: FATFile = if path.starts_with('/') || start_dir.is_none() {
             self.rootdir.clone()
         } else {
             /* Not ideal, but is fine while we only have one FS */
@@ -55,9 +55,6 @@ impl Filesystem for FATFilesystem {
             cpath = &path[1..];
 
             let res = self.find_file(Some(&dir), dirname);
-            if let Err(e) = res {
-                return Err(e);
-            }
 
             dir = res?.as_any().downcast_ref::<FATFile>().unwrap().clone();
 
@@ -182,7 +179,7 @@ impl FATFilesystem {
             1 => Ok(value & 0x000000FF),
             2 => Ok(value & 0x0000FFFF),
             3 => Ok(value & 0x00FFFFFF),
-            4 => Ok(value & 0xFFFFFFFF),
+            4 => Ok(value),
             _ => Err(ErrorCode::Unspecified)
         }
     }
@@ -202,7 +199,7 @@ impl FATFilesystem {
             entry >>= 4;
         }
 
-        Ok(entry as u32 & 0x0FFF)
+        Ok(entry & 0x0FFF)
     }
 
     fn get_next_cluster(&self, cluster: isize) -> Result<Option<isize>, ErrorCode> {
@@ -224,7 +221,7 @@ impl FATFilesystem {
         let cluster_num = ((cluster - self.data_offset) / self.cluster_size as isize) + 2;
         let fat_entry = self.get_fat_entry(cluster_num as usize)?;
 
-        if (fat_entry >= 0x002) && (fat_entry <= 0xff0) {
+        if (0x002..=0xff0).contains(&fat_entry) {
             Ok(Some(self.data_offset + ((fat_entry as isize - 2) * self.cluster_size as isize)))
         } else {
             Ok(None)
@@ -287,7 +284,7 @@ impl File for FATFile {
     }
 
     fn read(&self, mut offset: isize, size: usize) -> Result<Vec<u8>, ErrorCode> {
-        if !((self.attr & FileAttribute::Directory as u32) != 0) && (offset as usize + size) > self.size {
+        if ((self.attr & FileAttribute::Directory as u32) == 0) && (offset as usize + size) > self.size {
             println!("FATFile: Attempt to read past end of file");
             return Err(ErrorCode::OutOfBounds);
         }

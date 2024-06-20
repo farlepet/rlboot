@@ -50,9 +50,8 @@ unsafe fn serial_int_handler(idata: *mut IntrData) {
         },
         SERIALREG_IIR_INTID_RXAVAIL => {
             let data = inb(port + SERIAL_REG_DATA);
-            match (*idata).rxfifo.enqueue(data) {
-                Err(_) => { (*idata).status_overrun = true; },
-                _      => {}
+            if (*idata).rxfifo.enqueue(data).is_err() {
+                (*idata).status_overrun = true;
             }
         },
         SERIALREG_IIR_INTID_RXLINESTATUS => {
@@ -146,7 +145,7 @@ impl SerialPort {
 }
 
 impl crate::io::output::IOOutput for SerialPort {
-    fn write(self: &mut Self, data: &alloc::vec::Vec<u8>) {
+    fn write(&mut self, data: &[u8]) {
         for ch in data {
             self.write_u8(*ch);
         }

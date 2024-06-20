@@ -16,6 +16,11 @@ pub const EFLAGS_DF: u32 = 1 << 10; //< Direction flag
 pub const EFLAGS_OF: u32 = 1 << 11; //< Overflow flag
 pub const EFLAGS_NT: u32 = 1 << 14; //< Nested task flag
 
+extern "C" {
+    fn bios_call_asm(bcall: *mut BiosCall);
+}
+
+#[derive(Default)]
 #[repr(C)]
 pub struct BiosCall {
     pub int_n: u8,          /// Interrupt ID
@@ -30,27 +35,6 @@ pub struct BiosCall {
 
     pub eflags: u32,
 }
-
-impl Default for BiosCall {
-    fn default() -> BiosCall {
-        BiosCall {
-            int_n: 0,
-            _padding: [ 0, 0, 0 ],
-            eax: 0,
-            ebx: 0,
-            ecx: 0,
-            edx: 0,
-            esi: 0,
-            edi: 0,
-            eflags: 0,
-        }
-    }
-}
-
-extern "C" {
-    fn bios_call_asm(bcall: *mut BiosCall);
-}
-
 impl BiosCall {
     pub unsafe fn call(&mut self) {
         let int_en = intr::interrupts_enabled();

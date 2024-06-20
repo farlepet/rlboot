@@ -1,11 +1,10 @@
 extern crate alloc;
 
 
-use alloc::vec::Vec;
-use alloc::vec;
 use core::ptr::{addr_of, addr_of_mut};
 use core::fmt::Write;
-use core::usize;
+use alloc::vec::Vec;
+use alloc::vec;
 
 use crate::errors::ErrorCode;
 use crate::storage::block::BlockDevice;

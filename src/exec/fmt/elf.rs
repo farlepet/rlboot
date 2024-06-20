@@ -37,7 +37,7 @@ impl ExecFmtELF {
     /// # Arguments
     /// * chunk: Initial chunk of data to test against, must be at least of size
     ///   `EXECFMT_INITIAL_CHUNK_SZ`
-    pub fn test(chunk: &Vec<u8>) -> ExecFmtTestResult {
+    pub fn test(chunk: &[u8]) -> ExecFmtTestResult {
         if u32::from_le_bytes(chunk[0..4].try_into().unwrap()) == ELF_IDENT {
             ExecFmtTestResult::Yes
         } else {
@@ -50,59 +50,54 @@ impl ExecFmtELF {
     /// Returns true if okay, else false
     fn check_phdr(&self) -> bool {
         for phent in &self.phdr {
-            if phent.htype == ElfProgramHeaderType::Load {
-                if phent.vaddr < 0x100000 {
-                    return false;
-                }
+            if phent.htype == ElfProgramHeaderType::Load && phent.vaddr < 0x100000 {
+                return false;
             }
         }
         true
     }
 
     /// Load binary using program headers
-    fn load_phdr(&mut self, file: &Box<dyn File>) -> Result<(), ErrorCode> {
+    fn load_phdr(&mut self, file: &dyn File) -> Result<(), ErrorCode> {
         for phdr in &self.phdr {
-            match phdr.htype {
-                ElfProgramHeaderType::Load => {
-                    if phdr.paddr < self.data_begin {
-                        self.data_begin = phdr.paddr;
-                    }
-                    if (phdr.paddr + phdr.memsz) > self.data_end {
-                        self.data_end = phdr.paddr + phdr.memsz;
-                    }
+            if let ElfProgramHeaderType::Load = phdr.htype {
+                if phdr.paddr < self.data_begin {
+                    self.data_begin = phdr.paddr;
+                }
+                if (phdr.paddr + phdr.memsz) > self.data_end {
+                    self.data_end = phdr.paddr + phdr.memsz;
+                }
 
-                    if phdr.filesz > 0 {
-                        println!("  Loading {} bytes from file at {:x} into {:x}",
-                                 phdr.filesz, phdr.offset, phdr.paddr);
-                        for off in (0..phdr.filesz).step_by(BLOCK_READ_SZ) {
-                            let read_sz = if (phdr.filesz - off) as usize > BLOCK_READ_SZ {
-                                BLOCK_READ_SZ
-                            } else {
-                                (phdr.filesz - off) as usize
-                            };
+                if phdr.filesz > 0 {
+                    println!("  Loading {} bytes from file at {:x} into {:x}",
+                             phdr.filesz, phdr.offset, phdr.paddr);
+                    for off in (0..phdr.filesz).step_by(BLOCK_READ_SZ) {
+                        let read_sz = if (phdr.filesz - off) as usize > BLOCK_READ_SZ {
+                            BLOCK_READ_SZ
+                        } else {
+                            (phdr.filesz - off) as usize
+                        };
 
-                            match file.read((phdr.offset + off) as isize, read_sz) {
-                                Ok(data) => {
-                                    let data = data.as_ptr();
-                                    let dest = phdr.paddr as *mut u8;
-                                    unsafe {
-                                        //core::ptr::copy_nonoverlapping(data, dest, phdr.filesz as usize);
-                                    }
-                                },
-                                Err(e) => return Err(e),
-                            }
-                        }
-                                            }
-                    if phdr.memsz > phdr.filesz {
-                        let dest = (phdr.paddr + phdr.filesz) as *mut u8;
-                        println!("  Clearing {} bytes at {:x}",
-                                 phdr.memsz - phdr.filesz, phdr.paddr + phdr.filesz);
-                        unsafe {
-                            dest.write_bytes(0x00, (phdr.memsz - phdr.filesz) as usize);
+                        match file.read((phdr.offset + off) as isize, read_sz) {
+                            Ok(data) => {
+                                let data = data.as_ptr();
+                                let dest = phdr.paddr as *mut u8;
+                                unsafe {
+                                    //core::ptr::copy_nonoverlapping(data, dest, phdr.filesz as usize);
+                                }
+                            },
+                            Err(e) => return Err(e),
                         }
                     }
-                },
-                _ => {}
+                                        }
+                if phdr.memsz > phdr.filesz {
+                    let dest = (phdr.paddr + phdr.filesz) as *mut u8;
+                    println!("  Clearing {} bytes at {:x}",
+                             phdr.memsz - phdr.filesz, phdr.paddr + phdr.filesz);
+                    unsafe {
+                        dest.write_bytes(0x00, (phdr.memsz - phdr.filesz) as usize);
+                    }
+                }
             }
         }
 
@@ -118,7 +113,7 @@ macro_rules! ua_read {
 }
 
 impl ExecFmt for ExecFmtELF {
-    fn prepare(&mut self, file: &Box<dyn File>, config: &Config) -> Result<(), ErrorCode> {
+    fn prepare(&mut self, file: &dyn File, config: &Config) -> Result<(), ErrorCode> {
         let ehdr: ElfHeader = match file.read(0, mem::size_of::<ElfHeader>()) {
             Ok(data) => unsafe {
                 core::ptr::read(data.as_ptr() as *const _)
@@ -162,15 +157,12 @@ impl ExecFmt for ExecFmtELF {
         Ok(())
     }
 
-    fn load(&mut self, file: &Box<dyn File>, config: &Config) -> Result<(), ErrorCode> {
+    fn load(&mut self, file: &dyn File, config: &Config) -> Result<(), ErrorCode> {
         self.load_phdr(file)
     }
 
     fn get_entrypoint(&self) -> Option<usize> {
-        match self.ehdr {
-            Some(ehdr) => Some(unsafe { ehdr.data.e32.entry } as usize),
-            None => None,
-        }
+        self.ehdr.map(|ehdr| unsafe { ehdr.data.e32.entry } as usize)
     }
 }
 
