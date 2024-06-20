@@ -28,11 +28,10 @@ mod errors;
 use crate::config::Config;
 use crate::exec::ExecFile;
 use crate::io::output;
-use crate::io::serial;
-use crate::storage::block::bios::BiosBlockDevice;
-use crate::storage::block::BlockDevice;
-use crate::storage::fs::fat::FATFilesystem;
-use crate::storage::fs::Filesystem;
+use crate::storage::{
+    block::{bios::BiosBlockDevice, BlockDevice},
+    fs::{Filesystem, fat::FATFilesystem},
+};
 
 extern "C" {
     static mut __lboot_end: u8;
@@ -147,6 +146,7 @@ pub extern "C" fn ruststart(boot_drive: u32) -> ! {
     loop {}
 }
 
+#[allow(unused_variables)]
 #[inline(never)]
 #[panic_handler]
 fn cust_panic(info: &PanicInfo) -> ! {

@@ -1,7 +1,7 @@
 extern crate alloc;
 
 use core::{
-    alloc::Layout, cell::UnsafeCell, fmt::Error, mem, ptr::NonNull, sync::atomic::{AtomicUsize, Ordering},
+    alloc::Layout, cell::UnsafeCell, mem, ptr::NonNull, sync::atomic::{AtomicUsize, Ordering},
 };
 
 use crate::errors::ErrorCode;

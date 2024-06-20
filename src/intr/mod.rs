@@ -1,8 +1,6 @@
 #![allow(dead_code)]
 
-use core::arch::asm;
-use core::fmt::Error;
-use core::fmt::Write;
+use core::{arch::asm, fmt::Write};
 use alloc::boxed::Box;
 
 pub mod pic;
